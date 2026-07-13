@@ -811,6 +811,13 @@ function doSend(){
     document.getElementById('no-inp').value='';
     document.getElementById('dup-live-warn').style.display='none';
     onVC();resetPhoto();
+    // 送出後定時檢查並更新記錄
+    let refreshCount=0;
+    const refreshTimer=setInterval(()=>{
+      refreshCount++;
+      if(window.recs) renderHist();
+      if(refreshCount>=6) clearInterval(refreshTimer);
+    },800);
     return;
   }
 
@@ -1433,9 +1440,12 @@ async function loadFromFirestore(){
     const q = query(collection(db,'invoices'), orderBy('createdAt','desc'));
     onSnapshot(q, (snapshot)=>{
       window.recs = snapshot.docs.map(d=>({fbId:d.id, ...d.data()}));
+      // 總部端更新
       if(document.getElementById('s-admin').classList.contains('active')) renderAdmin();
-      if(window.cu && window.cu.role==='store' && document.getElementById('s-store').classList.contains('active')) renderHist();
-      if(window.cu && window.cu.role==='admin' && document.getElementById('s-admin').classList.contains('active')) renderAdmin();
+      // 門市端更新（不管哪間店都更新，renderHist 會自己篩選）
+      if(window.cu && window.cu.role==='store' && document.getElementById('s-store').classList.contains('active')){
+        renderHist();
+      }
     });
     console.log('Firebase 連線成功');
     window._fbLoaded = true;
@@ -1490,6 +1500,9 @@ window.doSendFirebase = async function(vk, cfg, manNo, remark, photo, manualItem
     });
     msg.style.color='#27500A'; msg.textContent='✓ 已送出，等待總部覆核';
     setTimeout(()=>{msg.textContent='';},3000);
+    // 強制重新渲染歷史記錄
+    setTimeout(()=>{ if(window.recs) renderHist(); }, 1500);
+    setTimeout(()=>{ if(window.recs) renderHist(); }, 3000);
   } catch(e){
     msg.style.color='#c00'; msg.textContent='上傳失敗：'+e.message;
     console.error(e);
