@@ -517,11 +517,14 @@ function addStore(){
 }
 
 function delStore(i){
-  if(!confirm(`確定要刪除「${storeList[i].name}」嗎？`))return;
-  storeList.splice(i,1);
-  renderStoreList();
-  if(window.saveStoresToFirebase) window.saveStoresToFirebase();
+  delId='store-'+i;
+  window._adminDelMode=false;
+  window._delStoreIndex=i;
+  document.getElementById('del-msg').innerHTML=`確定要刪除「${storeList[i].name}」嗎？<br><br>刪除後此門市帳號將無法登入。`;
+  document.getElementById('del-modal').classList.add('open');
 }
+
+// 覆寫 confirmDel 支援門市刪除
 const VC_BUILTIN={
   'twm-phone': {label:'台哥大 — 手機/平板/配件', vGroup:'twm',    noLabel:'出貨單號',noEx:'如 SBN1BS2606160017B4',hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'手動補充品項', itemRequired:false},
   'twm-sim':   {label:'台哥大 — SIM卡',           vGroup:'twm',    noLabel:'出貨單號',noEx:'如 SBN1BS2606160017B4',hasOcr:false,needsManual:false, requirePhoto:false, itemLabel:'卡號',         itemRequired:false},
@@ -928,6 +931,12 @@ async function saveEdit(){
   if(editPhoto)updateData.photo=editPhoto;
   if(window._fbReady && window.updateFirebase && typeof editId==='string'){
     await window.updateFirebase(editId,updateData);
+    let refreshCount=0;
+    const t=setInterval(()=>{
+      refreshCount++;
+      if(window.recs) renderHist();
+      if(refreshCount>=6) clearInterval(t);
+    },500);
   } else {
     const r=recs.find(r=>r.id===editId);
     if(r)Object.assign(r,updateData);
@@ -1092,6 +1101,12 @@ function markDone(id){
   const now=new Date();
   if(window._fbReady && window.markDoneFirebase && r.fbId){
     window.markDoneFirebase(r.fbId);
+    let refreshCount=0;
+    const t=setInterval(()=>{
+      refreshCount++;
+      if(window.recs) renderAdmin();
+      if(refreshCount>=6) clearInterval(t);
+    },500);
   } else {
     r.status='已入庫';r.dup=false;
     r.doneTime=now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
@@ -1175,6 +1190,12 @@ async function saveAdminEdit(){
   if(adminEditPhoto)updateData.photo=adminEditPhoto;
   if(window._fbReady && window.updateFirebase && typeof adminEditId==='string'){
     await window.updateFirebase(adminEditId, updateData);
+    let refreshCount=0;
+    const t=setInterval(()=>{
+      refreshCount++;
+      if(window.recs) renderAdmin();
+      if(refreshCount>=6) clearInterval(t);
+    },500);
   } else {
     Object.assign(r, updateData);
     renderAdmin();
@@ -1226,11 +1247,9 @@ function showDetail(id){
 // ===== 總部刪除 =====
 function adminDel(id){
   const r=findRec(id);if(!r)return;
-  // 使用自訂確認視窗（避免手機瀏覽器封鎖 confirm）
   delId=id;
   document.getElementById('del-msg').innerHTML=`確定要刪除此筆已入庫記錄嗎？<br><br><b>${r.noLabel}：${r.no}</b><br>${r.vendor}　${r.date}<br><br>⚠️ 刪除後無法復原！`;
   document.getElementById('del-modal').classList.add('open');
-  // 覆寫確認按鈕行為（刪除後回總表）
   window._adminDelMode=true;
 }
 
@@ -1238,13 +1257,45 @@ async function confirmDel(){
   const isAdminDel=window._adminDelMode;
   window._adminDelMode=false;
   const id=delId;
+  closeDel();
+
+  // 門市刪除
+  if(typeof id==='string' && id.startsWith('store-')){
+    const i=window._delStoreIndex;
+    if(i!==undefined && storeList[i]){
+      storeList.splice(i,1);
+      renderStoreList();
+      if(window.saveStoresToFirebase) window.saveStoresToFirebase();
+    }
+    return;
+  }
+
+  // 廠商刪除
+  if(typeof id==='string' && id.startsWith('vendor-')){
+    const key=window._delVendorKey;
+    if(key){
+      customVendors=customVendors.filter(v=>v.key!==key);
+      delete VC[key];
+      refreshVendorSelects();
+      renderVendorList();
+      if(window.saveVendorsToFirebase) window.saveVendorsToFirebase();
+    }
+    return;
+  }
   if(window._fbReady && window.deleteFirebase && typeof id==='string'){
     await window.deleteFirebase(id);
+    let refreshCount=0;
+    const t=setInterval(()=>{
+      refreshCount++;
+      if(window.recs){
+        if(isAdminDel) renderAdmin(); else renderHist();
+      }
+      if(refreshCount>=6) clearInterval(t);
+    },500);
   } else {
     recs=recs.filter(r=>String(r.id)!==String(id)&&r.fbId!==id);
-    if(isAdminDel)renderAdmin();else renderHist();
+    if(isAdminDel) renderAdmin(); else renderHist();
   }
-  closeDel();
   if(isAdminDel && document.getElementById('s-detail').classList.contains('active')){
     showScreen('s-admin');
   }
@@ -1366,11 +1417,12 @@ function closeEditVendor(){
   editVendorKey=null;
 }
 function delCustomVendor(key){
-  if(!confirm('確定要刪除此廠商嗎？'))return;
-  customVendors=customVendors.filter(v=>v.key!==key);
-  delete VC[key];
-  refreshVendorSelects();
-  renderVendorList();
+  delId='vendor-'+key;
+  window._adminDelMode=false;
+  window._delVendorKey=key;
+  const v=VC[key];
+  document.getElementById('del-msg').innerHTML=`確定要刪除廠商「${v?v.label:key}」嗎？`;
+  document.getElementById('del-modal').classList.add('open');
 }
 function refreshVendorSelects(){
   // 更新門市端廠商選單
