@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>進貨單管理系統</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{background:#f5f5f7;color:#1d1d1f;font-size:14px;min-height:100vh}
+.screen{display:none}.screen.active{display:block}
+
+/* topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #e5e5ea;background:#fff;position:sticky;top:0;z-index:10;gap:8px}
+.topbar-title{font-size:15px;font-weight:600;white-space:nowrap}
+.topbar-sub{font-size:11px;color:#888}
+.logo{width:32px;height:32px;border-radius:8px;background:#185FA5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+
+/* layout */
+.page{padding:14px;max-width:1100px;margin:0 auto}
+.card{background:#fff;border:1px solid #e5e5ea;border-radius:12px;padding:14px;margin-bottom:12px}
+.lbl{font-size:11px;color:#888;margin-bottom:4px;margin-top:10px}
+.lbl:first-child{margin-top:0}
+
+/* buttons */
+.gbtn{background:#185FA5;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:500;cursor:pointer;width:100%}
+.gbtn:hover{background:#1050a0}
+.mbtn{font-size:12px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
+.mbtn:hover{background:#f5f5f7}
+.abtn{font-size:12px;padding:5px 10px;border:1px dashed #ccc;border-radius:6px;background:transparent;color:#185FA5;cursor:pointer;width:100%;margin-top:6px;text-align:center}
+.abtn:hover{background:#f0f6ff}
+.edit-btn{font-size:11px;padding:3px 8px;border:1px solid #185FA5;border-radius:6px;background:transparent;color:#185FA5;cursor:pointer}
+.del-btn{font-size:11px;padding:3px 8px;border:1px solid #c00;border-radius:6px;background:transparent;color:#c00;cursor:pointer}
+
+/* form inputs */
+input[type=text],input[type=password],input[type=date],select,textarea{
+  outline:none;border:1px solid #e5e5ea;border-radius:8px;padding:8px 11px;
+  background:#f5f5f7;width:100%;font-size:14px;font-family:inherit;color:#1d1d1f}
+input[type=text]:focus,input[type=password]:focus,input[type=date]:focus,
+select:focus,textarea:focus{border-color:#185FA5;background:#fff}
+textarea{resize:vertical}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.b-pending{background:#FAEEDA;color:#633806}
+.b-done{background:#EAF3DE;color:#27500A}
+.b-dup{background:#FCEBEB;color:#791F1F}
+.b-ocr{background:#E6F1FB;color:#0C447C}
+.mtag{font-size:10px;background:#EAF3DE;color:#27500A;padding:1px 5px;border-radius:10px;margin-left:3px}
+
+/* vendor badges */
+.vbadge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap}
+.v-twm{background:#E6F1FB;color:#0C447C}
+.v-gj{background:#FAEEDA;color:#633806}
+.v-jt{background:#FCEBEB;color:#791F1F}
+.v-cash{background:#EAF3DE;color:#27500A}
+.v-repair{background:#F0EAFB;color:#4B1D96}
+.v-film{background:#FBF0EA;color:#7A2E0A}
+.v-custom{background:#f0f0f0;color:#333}
+
+/* stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.sc{background:#fff;border:1px solid #e5e5ea;border-radius:10px;padding:10px 12px;text-align:center}
+.sc-num{font-size:22px;font-weight:600}
+.sc-lbl{font-size:11px;color:#888;margin-top:2px}
+
+/* photo zone */
+.photo-zone{border:2px dashed #ccc;border-radius:10px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:#888;position:relative;overflow:hidden;background:#fafafa}
+.photo-zone img{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0}
+.photo-zone:hover{border-color:#185FA5;background:#f0f6ff}
+.pov{position:absolute;bottom:6px;right:8px;background:#185FA5;color:#fff;font-size:11px;padding:2px 8px;border-radius:6px}
+
+/* item rows */
+.irow{display:flex;gap:4px;align-items:center;margin-bottom:4px}
+.irow input{border:1px solid #e5e5ea;border-radius:6px;padding:5px 8px;font-size:12px;background:#f5f5f7;color:#1d1d1f}
+.dbtn{background:none;border:none;cursor:pointer;color:#aaa;padding:2px 4px;font-size:14px;line-height:1}
+.dbtn:hover{color:#c00}
+.cash-box{background:#f9f9f9;border-radius:8px;padding:10px;border:1px solid #e5e5ea}
+
+/* store history */
+.hrow{padding:10px 0;border-bottom:1px solid #f0f0f0}
+.hrow:last-child{border-bottom:none}
+.action-row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.locked-tag{font-size:10px;color:#888;background:#f0f0f0;padding:2px 8px;border-radius:10px}
+
+/* modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:500px;margin:auto}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:14px}
+
+/* admin table - desktop */
+.admin-table{width:100%;border-collapse:collapse;font-size:13px}
+.admin-table th{font-size:11px;color:#888;font-weight:500;text-align:left;padding:8px 8px;border-bottom:1px solid #e5e5ea;white-space:nowrap;background:#fafafa}
+.admin-table td{padding:10px 8px;border-bottom:1px solid #f5f5f7;vertical-align:top}
+.admin-table tr:hover td{background:#fafffe}
+.thumb{width:40px;height:40px;background:#f5f5f7;border:1px solid #e5e5ea;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.iedit{border:none;background:transparent;font-size:12px;color:#1d1d1f;width:100%;font-family:monospace;padding:0}
+.iedit:focus{outline:1px solid #185FA5;border-radius:3px;background:#f5f5f7;padding:2px 4px}
+.dup-warn{font-size:10px;color:#791F1F;margin-top:2px}
+
+/* mobile admin cards */
+.admin-card{background:#fff;border:1px solid #e5e5ea;border-radius:10px;padding:12px;margin-bottom:8px}
+.admin-cards{display:none}
+.admin-table-wrap{display:block}
+@media(max-width:599px){
+  .admin-table-wrap{display:none}
+  .admin-cards{display:block}
+}
+
+/* time filter */
+.time-filter{background:#fff;border:1px solid #e5e5ea;border-radius:12px;padding:12px;margin-bottom:12px}
+.tq-btn{font-size:12px;padding:5px 12px;border:1px solid #ccc;border-radius:20px;background:#fff;cursor:pointer}
+.tq-btn.active{background:#185FA5;color:#fff;border-color:#185FA5}
+
+/* search row */
+.search-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+@media(min-width:600px){.search-grid{grid-template-columns:2fr 1fr 1fr 1fr}}
+
+/* detail */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.fitem{background:#f5f5f7;border-radius:8px;padding:8px 10px}
+.fitem-l{font-size:10px;color:#888;margin-bottom:3px}
+.fitem-v{font-size:13px;font-weight:500}
+
+/* vendor mgmt */
+.vendor-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0}
+.vendor-row:last-child{border-bottom:none}
+
+/* acc hint */
+.acc-hint{background:#f5f5f7;border-radius:10px;padding:12px;margin-top:14px}
+.acc-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+.fill-btn{font-size:12px;padding:3px 10px;border:1px solid #185FA5;border-radius:6px;background:transparent;color:#185FA5;cursor:pointer}
+
+/* dup warning */
+.dup-live-box{background:#FAEEDA;border:1px solid #e0a800;border-radius:8px;padding:8px 10px;font-size:12px;color:#633806;margin-top:6px;display:none}
+
+/* info boxes */
+.info-green{background:#EAF3DE;border:1px solid #639922;border-radius:8px;padding:8px 12px;font-size:12px;color:#27500A;margin-top:6px}
+.info-yellow{background:#FFF8E6;border:1px solid #e0a800;border-radius:8px;padding:8px 12px;font-size:12px;color:#633806;margin-top:6px}
+.info-gray{background:#f5f5f7;border-radius:8px;padding:8px 12px;font-size:12px;color:#888;margin-top:6px}
+.info-blue{background:#E6F1FB;border-radius:8px;padding:8px 12px;font-size:12px;color:#0C447C;margin-top:6px}
+/* lightbox */
+.lightbox{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:200;align-items:center;justify-content:center;cursor:zoom-out;flex-direction:column;gap:10px}
+.lightbox.open{display:flex}
+.lightbox img{max-width:96%;max-height:88vh;object-fit:contain;border-radius:8px}
+.lightbox-close{color:#fff;font-size:13px;opacity:0.7}
+</style>
+</head>
+<body>
+
+<!-- 照片放大 lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="放大照片">
+  <div class="lightbox-close">點擊任意處關閉</div>
+</div>
+
+<!-- ===== 登入 ===== -->
+<div id="s-login" class="screen active">
+  <div class="page" style="max-width:400px;padding-top:40px">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:40px;margin-bottom:8px">🏪</div>
+      <div style="font-size:20px;font-weight:600">進貨單管理系統</div>
+      <div style="font-size:13px;color:#888;margin-top:4px">倚盟發貨管理平台</div>
+    </div>
+    <div class="card">
+      <div class="lbl" style="margin-top:0">帳號</div>
+      <input type="text" id="lu" placeholder="輸入帳號" style="margin-bottom:10px">
+      <div class="lbl">密碼</div>
+      <input type="password" id="lp" placeholder="輸入密碼" style="margin-bottom:14px">
+      <button class="gbtn" id="login-btn">登入</button>
+      <div id="lerr" style="font-size:12px;color:#c00;margin-top:8px;text-align:center"></div>
+    </div>
+    <div class="acc-hint">
+      <div style="font-size:12px;font-weight:500;margin-bottom:8px">🔑 示範帳號</div>
+      <div class="acc-row"><span style="font-size:13px">總部 admin</span><button class="fill-btn" onclick="fill('admin','admin1234')">填入</button></div>
+      <div id="store-login-hints"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 店長端 ===== -->
+<div id="s-store" class="screen">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="logo">🏪</div>
+      <div><div class="topbar-title" id="store-name">門市</div><div class="topbar-sub">進貨單上傳</div></div>
+    </div>
+    <button class="mbtn" onclick="logout()">登出</button>
+  </div>
+  <div class="page" style="max-width:600px">
+    <div class="card">
+      <div class="lbl" style="margin-top:0">廠商／類型 <span style="color:#c00">*</span></div>
+      <select id="vsel" onchange="onVC()">
+        <option value="">— 請選擇 —</option>
+        <optgroup label="台哥大">
+          <option value="twm-phone">台哥大 — 手機/平板/配件</option>
+          <option value="twm-sim">台哥大 — SIM卡</option>
+          <option value="twm-film">台哥大 — 包膜</option>
+          <option value="twm-repair">台哥大 — 維修</option>
+        </optgroup>
+        <optgroup label="配件廠商">
+          <option value="guangji">廣吉 — 台製配件</option>
+          <option value="junting">駿霆 — 台製配件</option>
+        </optgroup>
+        <optgroup label="現金盤">
+          <option value="cash-ys">YS(永盛) — 手機/平板</option>
+          <option value="cash-lh">聯禾 — 手機/平板</option>
+          <option value="cash-other">其他現金盤 — 手機/平板</option>
+        </optgroup>
+      </select>
+
+      <div id="no-wrap" style="display:none">
+        <div class="lbl"><span id="no-lbl-txt">單號</span> <span style="font-size:10px;color:#888" id="no-lbl-ex"></span></div>
+        <input type="text" id="no-inp" placeholder="" style="font-family:monospace" oninput="checkDupLive(this.value)">
+        <div class="dup-live-box" id="dup-live-warn">
+          ⚠️ <strong>注意：</strong>此單號在本店已有記錄：<span id="dup-live-info"></span>，請確認是否重複。
+        </div>
+      </div>
+
+      <div id="photo-lbl" class="lbl" style="display:none">單據照片 <span style="color:#c00">*必填</span></div>
+      <div class="photo-zone" id="pzone" style="display:none" onclick="document.getElementById('fi').click()">
+        <div style="font-size:32px">📷</div>
+        <span style="font-size:13px;color:#888">點此拍照或選取照片</span>
+        <input type="file" id="fi" accept="image/*" capture="camera" style="display:none" onchange="handlePhoto(this)">
+      </div>
+
+      <div id="manual-wrap" style="display:none;margin-top:10px">
+        <div class="lbl" style="margin-top:0;display:flex;align-items:center;gap:6px">
+          <span id="manual-lbl">品項</span>
+          <span id="manual-tag" style="font-size:10px;padding:1px 7px;border-radius:10px"></span>
+        </div>
+        <div class="cash-box">
+          <div id="manual-list"></div>
+          <button class="abtn" onclick="addManual()">＋ 新增品項</button>
+        </div>
+      </div>
+
+      <div id="remark-wrap" style="display:none;margin-top:10px">
+        <div class="lbl" style="margin-top:0">備註 <span style="font-size:10px;color:#888">（選填）</span></div>
+        <textarea id="remark-inp" placeholder="例：外箱破損、貨品缺件、請確認數量…" rows="2"></textarea>
+      </div>
+
+      <button class="gbtn" id="submit-btn" style="display:none;margin-top:12px" onclick="submitInv()">↑ 送出單據</button>
+      <div id="smsg" style="font-size:13px;margin-top:8px;text-align:center"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">今日已上傳記錄</div>
+      <div id="store-hist"><div style="text-align:center;color:#888;font-size:13px;padding:16px">尚無記錄</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 店長修改 Modal ===== -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">✏️ 修改單據</div>
+    <div id="edit-form"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="gbtn" style="flex:1" onclick="saveEdit()">儲存</button>
+      <button class="mbtn" style="flex:1;padding:10px" onclick="closeEdit()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 刪除確認 Modal ===== -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal">
+    <div class="modal-title">🗑️ 確認刪除</div>
+    <div id="del-msg" style="font-size:13px;color:#555;margin-bottom:16px;line-height:1.7"></div>
+    <div style="display:flex;gap:8px">
+      <button class="gbtn" style="flex:1;background:#c00" onclick="confirmDel()">確認刪除</button>
+      <button class="mbtn" style="flex:1;padding:10px" onclick="closeDel()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 重複單確認 Modal ===== -->
+<div class="modal-overlay" id="dup-modal">
+  <div class="modal">
+    <div style="font-size:32px;text-align:center;margin-bottom:8px">⚠️</div>
+    <div class="modal-title" style="text-align:center">重複單號警告</div>
+    <div id="dup-modal-msg" class="dup-live-box" style="display:block;margin-bottom:12px"></div>
+    <div style="font-size:12px;color:#888;margin-bottom:14px">如確認為不同批次或有特殊原因，可強制送出。</div>
+    <div style="display:flex;gap:8px">
+      <button class="gbtn" style="flex:1;background:#e07800" onclick="forceSend()">⚠️ 強制送出</button>
+      <button class="mbtn" style="flex:1;padding:10px" onclick="closeDupModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 總部端 ===== -->
+<div id="s-admin" class="screen">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="logo" style="background:#3B6D11">📊</div>
+      <div><div class="topbar-title">總部稽核總表</div><div class="topbar-sub" id="adate"></div></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="mbtn" onclick="goStores()" style="color:#27500A;border-color:#27500A">🏪 門市管理</button>
+      <button class="mbtn" onclick="goVendors()" style="color:#185FA5;border-color:#185FA5">⚙️ 廠商管理</button>
+      <button class="mbtn" onclick="logout()">登出</button>
+    </div>
+  </div>
+  <div class="page">
+    <div class="stat-grid" id="astats"></div>
+
+    <!-- 搜尋 -->
+    <div class="card" style="padding:12px">
+      <div class="search-grid">
+        <input type="text" id="sno" placeholder="🔍 搜尋單號或品名..." oninput="renderAdmin()">
+        <select id="sst" onchange="renderAdmin()">
+          <option value="">全部門市</option>
+          <option>後昌店</option><option>陽明店</option><option>仁雄店</option>
+          <option>鼎山店</option><option>凱旋店</option>
+        </select>
+        <select id="svd" onchange="renderAdmin()">
+          <option value="">全部廠商</option>
+          <option value="twm">台哥大</option>
+          <option value="repair">台哥大維修</option>
+          <option value="film">台哥大包膜</option>
+          <option value="guangji">廣吉</option>
+          <option value="junting">駿霆</option>
+          <option value="cash">現金盤</option>
+        </select>
+        <select id="sss" onchange="renderAdmin()">
+          <option value="pending">待處理（待覆核＋重複單）</option>
+          <option value="">全部狀態</option>
+          <option value="待覆核">待覆核</option>
+          <option value="已入庫">已入庫</option>
+          <option value="重複單">重複單</option>
+        </select>
+      </div>
+      <!-- 時間篩選 -->
+      <div style="border-top:1px solid #f0f0f0;padding-top:10px;margin-top:4px">
+        <div style="font-size:11px;color:#888;margin-bottom:8px">📅 時間篩選</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+          <button class="tq-btn" id="tq-today" onclick="setTQ('today')">今日</button>
+          <button class="tq-btn" id="tq-week" onclick="setTQ('week')">本週</button>
+          <button class="tq-btn" id="tq-month" onclick="setTQ('month')">本月</button>
+          <button class="tq-btn active" id="tq-all" onclick="setTQ('all')">全部</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="stime-type" onchange="renderAdmin()" style="width:auto;font-size:12px;padding:5px 8px">
+            <option value="upload">依上傳日期</option>
+            <option value="done">依入庫日期</option>
+          </select>
+          <input type="date" id="sdate-from" onchange="renderAdmin()" style="width:auto;font-size:12px;padding:5px 8px">
+          <span style="color:#888;font-size:12px">至</span>
+          <input type="date" id="sdate-to" onchange="renderAdmin()" style="width:auto;font-size:12px;padding:5px 8px">
+          <button class="mbtn" onclick="clearTQ()" style="font-size:12px">清除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 結果表格 -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="del-btn" onclick="openBatchDel()" style="font-size:12px;padding:5px 12px">🗑️ 批次刪除已入庫</button>
+      </div>
+      <div id="admin-result" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 總部修改 Modal ===== -->
+<div class="modal-overlay" id="admin-edit-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">✏️ 修改單據（總部）</div>
+    <div class="info-blue" style="margin-bottom:12px;display:block">總部可修改所有欄位，包含已入庫記錄</div>
+    <div id="admin-edit-form"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="gbtn" style="flex:1" onclick="saveAdminEdit()">儲存修改</button>
+      <button class="mbtn" style="flex:1;padding:10px" onclick="closeAdminEdit()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 詳情頁 ===== -->
+<div id="s-detail" class="screen">
+  <div class="topbar">
+    <button class="mbtn" onclick="showScreen('s-admin')">← 返回</button>
+    <div class="topbar-title">單據詳情</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="page" style="max-width:600px">
+    <div class="card" id="dcontent"></div>
+  </div>
+</div>
+
+<!-- ===== 廠商管理頁 ===== -->
+<div id="s-vendors" class="screen">
+  <div class="topbar">
+    <button class="mbtn" onclick="showScreen('s-admin')">← 返回</button>
+    <div class="topbar-title">廠商管理</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="page" style="max-width:600px">
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">現有廠商清單</div>
+      <div id="vendor-list"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px">➕ 新增廠商</div>
+      <div class="lbl" style="margin-top:0">廠商名稱 <span style="color:#c00">*</span></div>
+      <input type="text" id="nv-label" placeholder="例：新光配件">
+      <div class="lbl">單號欄位名稱 <span style="color:#c00">*</span></div>
+      <input type="text" id="nv-nolabel" placeholder="例：出貨單號">
+      <div class="lbl">單號格式說明</div>
+      <input type="text" id="nv-noex" placeholder="例：如 AB-20260617-001">
+      <button class="gbtn" style="margin-top:12px" onclick="addVendor()">新增廠商</button>
+      <div id="nv-msg" style="font-size:13px;margin-top:8px;text-align:center"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 門市管理頁 ===== -->
+<div id="s-stores" class="screen">
+  <div class="topbar">
+    <button class="mbtn" onclick="showScreen('s-admin')">← 返回</button>
+    <div class="topbar-title">門市管理</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="page" style="max-width:600px">
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">目前門市帳號</div>
+      <div id="store-list"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px">➕ 新增門市</div>
+      <div class="lbl" style="margin-top:0">門市名稱 <span style="color:#c00">*</span></div>
+      <input type="text" id="ns-name" placeholder="例：中正店">
+      <div class="lbl">帳號 <span style="color:#c00">*</span></div>
+      <input type="text" id="ns-account" placeholder="例：14">
+      <div class="lbl">密碼</div>
+      <input type="text" id="ns-pw" placeholder="預設 0000" value="0000">
+      <button class="gbtn" style="margin-top:12px" onclick="addStore()">新增門市</button>
+      <div id="ns-msg" style="font-size:13px;margin-top:8px;text-align:center"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 批次刪除 Modal -->
+<div class="modal-overlay" id="batch-del-modal">
+  <div class="modal">
+    <div class="modal-title">🗑️ 批次刪除已入庫記錄</div>
+    <div id="batch-del-content"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="gbtn" style="flex:1;background:#c00" id="batch-del-confirm-btn" onclick="confirmBatchDel()">確認刪除</button>
+      <button class="mbtn" style="flex:1;padding:10px" onclick="closeBatchDel()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 門市資料（可動態新增）=====
+let storeList=[
+  {account:'01',name:'鼎山店',pw:'0000'},
+  {account:'04',name:'陽明店',pw:'0000'},
+  {account:'07',name:'後昌店',pw:'0000'},
+  {account:'09',name:'仁雄店',pw:'0000'},
+  {account:'13',name:'凱旋店',pw:'0000'},
+];
+
+function buildACCS(){
+  const a={admin:{role:'admin'}};
+  const p={admin:'admin1234'};
+  storeList.forEach(s=>{
+    a[s.account]={role:'store',store:s.name};
+    p[s.account]=s.pw;
+  });
+  return {accs:a,pws:p};
+}
+
+function goStores(){showScreen('s-stores');renderStoreList();}
+
+function renderStoreList(){
+  const el=document.getElementById('store-list');if(!el)return;
+  // 更新門市篩選下拉
+  const sst=document.getElementById('sst');
+  if(sst){
+    sst.innerHTML='<option value="">全部門市</option>'+storeList.map(s=>`<option>${s.name}</option>`).join('');
+  }
+  if(!storeList.length){el.innerHTML='<div style="color:#888;font-size:13px;text-align:center;padding:12px">尚無門市</div>';return;}
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr>
+      <th style="text-align:left;padding:7px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">門市名稱</th>
+      <th style="text-align:left;padding:7px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">帳號</th>
+      <th style="text-align:left;padding:7px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">密碼</th>
+      <th style="width:60px;border-bottom:1px solid #e5e5ea"></th>
+    </tr></thead>
+    <tbody>${storeList.map((s,i)=>`<tr>
+      <td style="padding:8px;border-bottom:1px solid #f5f5f7;font-weight:500">${s.name}</td>
+      <td style="padding:8px;border-bottom:1px solid #f5f5f7;font-family:monospace">${s.account}</td>
+      <td style="padding:8px;border-bottom:1px solid #f5f5f7">
+        <input type="text" value="${s.pw}" style="width:80px;font-size:12px;padding:4px 8px" onchange="storeList[${i}].pw=this.value">
+      </td>
+      <td style="padding:8px;border-bottom:1px solid #f5f5f7">
+        <button class="del-btn" onclick="delStore(${i})">刪除</button>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function addStore(){
+  const name=document.getElementById('ns-name').value.trim();
+  const account=document.getElementById('ns-account').value.trim();
+  const pw=document.getElementById('ns-pw').value.trim()||'0000';
+  const msg=document.getElementById('ns-msg');
+  if(!name){msg.style.color='#c00';msg.textContent='請填寫門市名稱';return;}
+  if(!account){msg.style.color='#c00';msg.textContent='請填寫帳號';return;}
+  if(storeList.find(s=>s.account===account)){msg.style.color='#c00';msg.textContent='此帳號已存在';return;}
+  storeList.push({account,name,pw});
+  document.getElementById('ns-name').value='';
+  document.getElementById('ns-account').value='';
+  document.getElementById('ns-pw').value='0000';
+  msg.style.color='#27500A';msg.textContent=`✓ 已新增「${name}」`;
+  renderStoreList();
+  if(window.saveStoresToFirebase) window.saveStoresToFirebase();
+  setTimeout(()=>{msg.textContent='';},3000);
+}
+
+function delStore(i){
+  if(!confirm(`確定要刪除「${storeList[i].name}」嗎？`))return;
+  storeList.splice(i,1);
+  renderStoreList();
+  if(window.saveStoresToFirebase) window.saveStoresToFirebase();
+}
+const VC_BUILTIN={
+  'twm-phone': {label:'台哥大 — 手機/平板/配件', vGroup:'twm',    noLabel:'出貨單號',noEx:'如 SBN1BS2606160017B4',hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'手動補充品項', itemRequired:false},
+  'twm-sim':   {label:'台哥大 — SIM卡',           vGroup:'twm',    noLabel:'出貨單號',noEx:'如 SBN1BS2606160017B4',hasOcr:false,needsManual:false, requirePhoto:false, itemLabel:'卡號',         itemRequired:false},
+  'twm-film':  {label:'台哥大 — 包膜',            vGroup:'film',   noLabel:'備註',    noEx:'可輸入備註說明',        hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'包膜品項',     itemRequired:false},
+  'twm-repair':{label:'台哥大 — 維修',            vGroup:'repair', noLabel:'維修單號',noEx:'手動輸入維修單號',      hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'維修品項',     itemRequired:false},
+  'guangji':   {label:'廣吉 — 台製配件',          vGroup:'guangji',noLabel:'貨單編號',noEx:'如 A-1150615039',       hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'手動補充品項', itemRequired:false},
+  'junting':   {label:'駿霆 — 台製配件',          vGroup:'junting',noLabel:'單號',    noEx:'如 A1150615190',        hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'手動補充品項', itemRequired:false},
+  'cash-ys':   {label:'YS(永盛) — 手機/平板',     vGroup:'cash',   noLabel:'出貨單號',noEx:'手動輸入出貨單號',       hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'品名數量',     itemRequired:false},
+  'cash-lh':   {label:'聯禾 — 手機/平板',         vGroup:'cash',   noLabel:'出貨單號',noEx:'手動輸入出貨單號',       hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'品名數量',     itemRequired:false},
+  'cash-other':{label:'其他現金盤 — 手機/平板',   vGroup:'cash',   noLabel:'出貨單號',noEx:'手動輸入出貨單號',       hasOcr:false,needsManual:false, requirePhoto:true,  itemLabel:'品名數量',     itemRequired:false},
+};
+let VC=Object.assign({},VC_BUILTIN);
+let customVendors=[];
+let customVendorId=100;
+
+const VB={twm:'v-twm',guangji:'v-gj',junting:'v-jt',cash:'v-cash',repair:'v-repair',film:'v-film'};
+function getVB(vGroup){return VB[vGroup]||'v-custom';}
+
+const ACCS={};const PWS={}; // 改用動態 storeList + buildACCS()
+
+let cu=null,photo=null,manualItems=[],editId=null,delId=null,editPhoto=null;
+let adminEditId=null,adminEditItems=[],adminEditPhoto=null;
+
+let recs=[];
+let nid=1;
+
+// ===== 工具函數 =====
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function openLightbox(src){
+  document.getElementById('lightbox-img').src=src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src='';
+}
+function goVendors(){showScreen('s-vendors');renderVendorList();}
+
+// ===== 批次刪除 =====
+function openBatchDel(){
+  const allRecs=getDataRecs();
+  const done=allRecs.filter(r=>r.status==='已入庫');
+  const el=document.getElementById('batch-del-content');
+  if(!done.length){
+    el.innerHTML='<div style="color:#888;font-size:13px;text-align:center;padding:12px">目前沒有已入庫的記錄</div>';
+    document.getElementById('batch-del-confirm-btn').style.display='none';
+  } else {
+    document.getElementById('batch-del-confirm-btn').style.display='block';
+    el.innerHTML=`
+      <div style="font-size:13px;color:#555;margin-bottom:12px">選擇要刪除的時間範圍：</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="batch-range" value="3" checked> 3個月前的記錄（${done.filter(r=>isOlderThan(r.doneDate||r.date,90)).length} 筆）
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="batch-range" value="1"> 1個月前的記錄（${done.filter(r=>isOlderThan(r.doneDate||r.date,30)).length} 筆）
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="batch-range" value="all"> 全部已入庫（${done.length} 筆）
+        </label>
+      </div>
+      <div class="info-yellow" style="display:block;margin-top:12px">⚠️ 刪除後無法復原，請確認後再執行</div>`;
+  }
+  document.getElementById('batch-del-modal').classList.add('open');
+}
+
+function isOlderThan(dateStr, days){
+  if(!dateStr)return false;
+  const d=new Date(dateStr.replace(/\//g,'-'));
+  const diff=(Date.now()-d.getTime())/(1000*60*60*24);
+  return diff>days;
+}
+
+async function confirmBatchDel(){
+  const sel=document.querySelector('input[name="batch-range"]:checked');
+  if(!sel)return;
+  const allRecs=getDataRecs();
+  const done=allRecs.filter(r=>r.status==='已入庫');
+  let toDelete=[];
+  if(sel.value==='all') toDelete=done;
+  else if(sel.value==='3') toDelete=done.filter(r=>isOlderThan(r.doneDate||r.date,90));
+  else if(sel.value==='1') toDelete=done.filter(r=>isOlderThan(r.doneDate||r.date,30));
+  if(!toDelete.length){alert('沒有符合條件的記錄');return;}
+  const btn=document.getElementById('batch-del-confirm-btn');
+  btn.textContent='刪除中…';btn.disabled=true;
+  const fbIds=toDelete.filter(r=>r.fbId).map(r=>r.fbId);
+  if(window.batchDeleteFirebase && fbIds.length){
+    await window.batchDeleteFirebase(fbIds);
+  }
+  // 本地也清掉
+  recs=recs.filter(r=>!toDelete.find(d=>d.id===r.id||d.fbId===r.fbId));
+  closeBatchDel();
+  renderAdmin();
+  btn.textContent='確認刪除';btn.disabled=false;
+}
+
+function closeBatchDel(){
+  document.getElementById('batch-del-modal').classList.remove('open');
+}
+function fill(u,p){document.getElementById('lu').value=u;document.getElementById('lp').value=p;document.getElementById('lerr').textContent='';}
+function normDate(s){return s?s.replace(/\//g,'-'):'';}
+
+// ===== 登入 =====
+function renderLoginHints(){
+  const el=document.getElementById('store-login-hints');if(!el)return;
+  el.innerHTML=storeList.map(s=>`
+    <div class="acc-row"><span style="font-size:13px">${s.name}（${s.account}）</span><button class="fill-btn" onclick="fill('${s.account}','${s.pw}')">填入</button></div>
+  `).join('');
+}
+
+function doLogin(){
+  const u=document.getElementById('lu').value.trim(),p=document.getElementById('lp').value.trim();
+  const {accs,pws}=buildACCS();
+  const acc=accs[u];
+  if(acc&&pws[u]===p){
+    cu={...acc,username:u};
+    document.getElementById('lerr').textContent='';
+    if(acc.role==='admin'){
+      document.getElementById('adate').textContent=new Date().toLocaleDateString('zh-TW')+' 截止 16:00';
+      renderAdmin();showScreen('s-admin');
+    } else {
+      document.getElementById('store-name').textContent=acc.store;
+      manualItems=[];renderHist();showScreen('s-store');
+    }
+  } else {
+    document.getElementById('lerr').textContent='帳號或密碼錯誤';
+  }
+}
+document.getElementById('login-btn').addEventListener('click',doLogin);
+document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+function logout(){
+  cu=null;photo=null;manualItems=[];
+  document.getElementById('lu').value='';document.getElementById('lp').value='';
+  document.getElementById('vsel').value='';document.getElementById('smsg').textContent='';
+  resetPhoto();onVC();showScreen('s-login');
+}
+
+// ===== 店長端 =====
+function resetPhoto(){
+  const z=document.getElementById('pzone');
+  z.innerHTML='<div style="font-size:32px">📷</div><span style="font-size:13px;color:#888">點此拍照或選取照片</span><input type="file" id="fi" accept="image/*" capture="camera" style="display:none" onchange="handlePhoto(this)">';
+}
+
+function onVC(){
+  const v=document.getElementById('vsel').value;
+  const cfg=VC[v];
+  ['no-wrap','photo-lbl','pzone','manual-wrap','remark-wrap','submit-btn'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+  const ocrEl=document.getElementById('ocr-info');if(ocrEl)ocrEl.style.display='none';
+  document.getElementById('dup-live-warn').style.display='none';
+  if(!cfg)return;
+
+  // 單號欄位
+  document.getElementById('no-wrap').style.display='block';
+  document.getElementById('no-lbl-txt').textContent=cfg.noLabel;
+  document.getElementById('no-lbl-ex').textContent=cfg.noEx;
+  document.getElementById('no-inp').placeholder=cfg.noEx;
+  document.getElementById('no-inp').value='';
+
+  // 照片：SIM卡選填，其他必填
+  const photoLbl=document.getElementById('photo-lbl');
+  photoLbl.style.display='block';
+  photoLbl.innerHTML=cfg.requirePhoto
+    ?'單據照片 <span style="color:#c00">*必填</span>'
+    :'單據照片 <span style="font-size:10px;color:#888">（選填）</span>';
+  document.getElementById('pzone').style.display='flex';
+
+  // 品項（全部選填）
+  document.getElementById('manual-wrap').style.display='block';
+  const lbl=document.getElementById('manual-lbl');
+  const tag=document.getElementById('manual-tag');
+  lbl.textContent=cfg.itemLabel||'品項';
+  tag.textContent='選填';tag.style.background='#EAF3DE';tag.style.color='#27500A';
+  manualItems=[];
+  renderManual();
+  document.getElementById('remark-wrap').style.display='block';
+  document.getElementById('remark-inp').value='';
+  document.getElementById('submit-btn').style.display='block';
+}
+
+function renderManual(){
+  const el=document.getElementById('manual-list');
+  const v=document.getElementById('vsel').value;
+  const cfg=VC[v];
+  const isOpt=cfg&&!cfg.needsManual;
+  if(isOpt&&!manualItems.length){
+    el.innerHTML='<div style="font-size:12px;color:#888;padding:4px 0">點下方新增品項（選填）</div>';return;
+  }
+  el.innerHTML=manualItems.map((it,i)=>`
+    <div class="irow">
+      <input type="text" value="${it.name}" placeholder="品名" style="flex:1" oninput="manualItems[${i}].name=this.value">
+      <input type="text" value="${it.qty||''}" placeholder="數量" style="width:50px;text-align:center" oninput="manualItems[${i}].qty=this.value">
+      ${manualItems.length>1||isOpt?`<button class="dbtn" onclick="manualItems.splice(${i},1);renderManual()">✕</button>`:'<div style="width:20px"></div>'}
+    </div>`).join('');
+}
+function addManual(){manualItems.push({name:'',qty:''});renderManual();}
+
+function handlePhoto(inp){
+  const f=inp.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    photo=e.target.result;
+    const z=document.getElementById('pzone');
+    z.innerHTML=`<img src="${photo}" alt="預覽"><div class="pov">✓ 已選取</div><input type="file" id="fi" accept="image/*" capture="camera" style="display:none" onchange="handlePhoto(this)">`;
+  };
+  reader.readAsDataURL(f);
+}
+
+function checkDupLive(val){
+  const warn=document.getElementById('dup-live-warn');
+  const info=document.getElementById('dup-live-info');
+  if(!warn||!info||!cu)return;
+  const v=val.trim();
+  if(!v){warn.style.display='none';return;}
+  const allData = (window._fbReady && window.recs) ? window.recs : recs;
+  const dup=allData.find(r=>r.store===cu.store&&r.no===v);
+  if(dup){
+    info.textContent=`${dup.date} ${dup.time}（${dup.vendor}，${dup.status}）`;
+    warn.style.display='block';
+  } else {
+    warn.style.display='none';
+  }
+}
+
+function submitInv(){
+  const vk=document.getElementById('vsel').value;
+  const cfg=VC[vk];
+  const msg=document.getElementById('smsg');
+  if(!vk){msg.style.color='#c00';msg.textContent='請選擇廠商類型';return;}
+  if(cfg.requirePhoto&&!photo){msg.style.color='#c00';msg.textContent='請先拍攝或選取單據照片';return;}
+  if(cfg.needsManual&&!manualItems.some(it=>it.name.trim())){msg.style.color='#c00';msg.textContent='請至少填寫一筆品名';return;}
+  const manNo=document.getElementById('no-inp').value.trim();
+  // 重複單確認
+  if(manNo){
+    const dup=recs.find(r=>r.store===cu.store&&r.no===manNo);
+    if(dup){
+      const m=document.getElementById('dup-modal-msg');
+      m.textContent=`單號 ${manNo} 在本店已有記錄：${dup.date} ${dup.time}（${dup.vendor}，${dup.status}）`;
+      document.getElementById('dup-modal').classList.add('open');
+      return;
+    }
+  }
+  doSend();
+}
+function closeDupModal(){document.getElementById('dup-modal').classList.remove('open');}
+function forceSend(){closeDupModal();doSend();}
+
+function doSend(){
+  const vk=document.getElementById('vsel').value;
+  const cfg=VC[vk];
+  const msg=document.getElementById('smsg');
+  const manNo=document.getElementById('no-inp').value.trim();
+  const remark=document.getElementById('remark-inp').value.trim();
+
+  if(window._fbReady && window.doSendFirebase){
+    if(!vk){msg.style.color='#c00';msg.textContent='請選擇廠商類型';return;}
+    if(cfg.requirePhoto&&!photo){msg.style.color='#c00';msg.textContent='請先拍攝或選取單據照片';return;}
+    window.doSendFirebase(vk,cfg,manNo,remark,photo,[...manualItems]);
+    photo=null;manualItems=[];
+    document.getElementById('vsel').value='';
+    document.getElementById('no-inp').value='';
+    document.getElementById('dup-live-warn').style.display='none';
+    onVC();resetPhoto();
+    return;
+  }
+
+  msg.style.color='#0C447C';msg.textContent='送出中…';
+  setTimeout(()=>{
+    const fno=manNo||('INV-'+Date.now().toString().slice(-8));
+    const isDup=fno!=='無單號'&&!!recs.find(r=>r.store===cu.store&&r.no===fno);
+    const items=manualItems.filter(it=>it.name&&it.name.trim()).map(it=>({code:'',name:it.name,qty:it.qty||'1',m:true}));
+    recs.unshift({
+      id:nid++,store:cu.store,vk,vendor:cfg.label,vGroup:cfg.vGroup,noLabel:cfg.noLabel,
+      no:fno,items,remark,
+      time:new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
+      date:new Date().toLocaleDateString('zh-TW'),
+      status:isDup?'重複單':'待覆核',photo,dup:isDup,ocrP:false
+    });
+    msg.style.color='#27500A';msg.textContent='✓ 已送出，等待總部覆核';
+    photo=null;manualItems=[];
+    document.getElementById('vsel').value='';
+    document.getElementById('no-inp').value='';
+    document.getElementById('dup-live-warn').style.display='none';
+    onVC();resetPhoto();renderHist();
+    setTimeout(()=>{msg.textContent='';},3000);
+  },400);
+}
+
+function renderHist(){
+  const el=document.getElementById('store-hist');
+  const data = (window._fbReady && window.recs) ? window.recs : recs;
+  const my=data.filter(r=>r.store===cu.store);
+  if(!my.length){el.innerHTML='<div style="text-align:center;color:#888;font-size:13px;padding:16px">今日尚無上傳記錄</div>';return;}
+  el.innerHTML=my.map(r=>{
+    const canEdit=r.status!=='已入庫';
+    return `<div class="hrow">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+            <span class="vbadge ${getVB(r.vGroup)}">${r.vendor}</span>
+            <span style="font-size:11px;color:#888">${r.date} ${r.time}</span>
+          </div>
+          <div style="font-size:12px;color:#555;font-family:monospace;margin-bottom:3px">${r.noLabel}：${r.no}</div>
+          <div style="font-size:12px;color:#888">${r.items.slice(0,2).map(it=>`${it.name}×${it.qty}`).join('　')}${r.items.length>2?` …等${r.items.length}項`:''}</div>
+          ${r.remark?`<div style="font-size:12px;color:#e07800;margin-top:3px">📝 ${r.remark}</div>`:''}
+          <div class="action-row">
+            ${canEdit
+              ?`<button class="edit-btn" data-id="${r.fbId||r.id}" onclick="openEdit(this.dataset.id)">✏️ 修改</button><button class="del-btn" data-id="${r.fbId||r.id}" onclick="openDel(this.dataset.id)">🗑️ 刪除</button>`
+              :`<span class="locked-tag">🔒 已入庫，不可修改</span>`}
+          </div>
+        </div>
+        <span class="badge ${r.status==='已入庫'?'b-done':r.status==='重複單'?'b-dup':'b-pending'}">${r.status}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== 店長修改/刪除 =====
+let editItems=[];
+function getDataRecs(){return (window._fbReady && window.recs) ? window.recs : recs;}
+function findRec(id){return getDataRecs().find(r=>String(r.id)===String(id)||r.fbId===String(id));}
+function openEdit(id){
+  const r=findRec(id);if(!r)return;
+  editId=r.fbId||r.id;editItems=(r.items||[]).map(it=>({...it}));editPhoto=null;
+  const cfg=VC[r.vk]||{};
+  document.getElementById('edit-form').innerHTML=`
+    <div class="lbl" style="margin-top:0">${r.noLabel}</div>
+    <input type="text" id="edit-no" value="${r.no}" placeholder="${cfg.noEx||''}">
+    <div class="lbl" style="margin-top:10px">品項</div>
+    <div class="cash-box">
+      <div id="edit-items-list"></div>
+      <button class="abtn" onclick="addEditItem()">＋ 新增品項</button>
+    </div>
+    <div class="lbl" style="margin-top:10px">備註</div>
+    <textarea id="edit-remark" rows="2">${r.remark||''}</textarea>
+    <div class="lbl" style="margin-top:10px">單據照片</div>
+    <div class="photo-zone" id="edit-pzone" onclick="document.getElementById('edit-fi').click()" style="min-height:80px">
+      ${r.photo?`<img src="${r.photo}" alt="預覽"><div class="pov">✓ 已有照片</div>`:'<div style="font-size:24px">📷</div><span style="font-size:12px;color:#888">點此更換照片</span>'}
+      <input type="file" id="edit-fi" accept="image/*" capture="camera" style="display:none" onchange="handleEditPhoto(this)">
+    </div>`;
+  renderEditItems();
+  document.getElementById('edit-modal').classList.add('open');
+}
+function renderEditItems(){
+  const el=document.getElementById('edit-items-list');if(!el)return;
+  if(!editItems.length){el.innerHTML='<div style="font-size:12px;color:#888;padding:4px">尚無品項</div>';return;}
+  el.innerHTML=editItems.map((it,i)=>`
+    <div class="irow">
+      <input type="text" value="${it.name}" placeholder="品名" style="flex:1" oninput="editItems[${i}].name=this.value">
+      <input type="text" value="${it.qty||''}" placeholder="數量" style="width:50px;text-align:center" oninput="editItems[${i}].qty=this.value">
+      ${editItems.length>1?`<button class="dbtn" onclick="editItems.splice(${i},1);renderEditItems()">✕</button>`:'<div style="width:20px"></div>'}
+    </div>`).join('');
+}
+function addEditItem(){editItems.push({code:'',name:'',qty:'',m:true});renderEditItems();}
+function handleEditPhoto(inp){
+  const f=inp.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    editPhoto=e.target.result;
+    const z=document.getElementById('edit-pzone');
+    if(z)z.innerHTML=`<img src="${editPhoto}" alt="預覽"><div class="pov">✓ 新照片</div><input type="file" id="edit-fi" accept="image/*" capture="camera" style="display:none" onchange="handleEditPhoto(this)">`;
+  };
+  reader.readAsDataURL(f);
+}
+async function saveEdit(){
+  const newNo=document.getElementById('edit-no').value.trim();
+  if(!newNo){alert('單號不能為空');return;}
+  const newRemark=document.getElementById('edit-remark').value.trim();
+  const newItems=editItems.filter(it=>it.name&&it.name.trim()).map(it=>({...it,m:true}));
+  const updateData={no:newNo,remark:newRemark,items:newItems};
+  if(editPhoto)updateData.photo=editPhoto;
+  if(window._fbReady && window.updateFirebase && typeof editId==='string'){
+    await window.updateFirebase(editId,updateData);
+  } else {
+    const r=recs.find(r=>r.id===editId);
+    if(r)Object.assign(r,updateData);
+    renderHist();
+  }
+  closeEdit();
+}
+function closeEdit(){document.getElementById('edit-modal').classList.remove('open');editId=null;editPhoto=null;}
+
+function openDel(id){
+  const r=findRec(id);if(!r)return;
+  delId=r.fbId||r.id;
+  window._adminDelMode=false;
+  document.getElementById('del-msg').innerHTML=`確定要刪除這筆單據嗎？<br><br><b>${r.noLabel}：${r.no}</b><br>${r.vendor}　${r.date} ${r.time}<br><br>刪除後無法復原。`;
+  document.getElementById('del-modal').classList.add('open');
+}
+function closeDel(){document.getElementById('del-modal').classList.remove('open');delId=null;}
+
+// ===== 總部端 =====
+let tqActive='all';
+function setTQ(type){
+  tqActive=type;
+  ['today','week','month','all'].forEach(t=>{
+    const btn=document.getElementById('tq-'+t);
+    if(btn){btn.classList.toggle('active',t===type);}
+  });
+  const now=new Date();
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  let from='',to='';
+  if(type==='today'){from=fmt(now);to=fmt(now);}
+  else if(type==='week'){const d=new Date(now);d.setDate(d.getDate()-d.getDay());from=fmt(d);to=fmt(now);}
+  else if(type==='month'){from=fmt(new Date(now.getFullYear(),now.getMonth(),1));to=fmt(now);}
+  document.getElementById('sdate-from').value=from;
+  document.getElementById('sdate-to').value=to;
+  renderAdmin();
+}
+function clearTQ(){
+  tqActive='all';
+  ['today','week','month','all'].forEach(t=>{
+    const btn=document.getElementById('tq-'+t);
+    if(btn)btn.classList.toggle('active',t==='all');
+  });
+  document.getElementById('sdate-from').value='';
+  document.getElementById('sdate-to').value='';
+  renderAdmin();
+}
+
+function renderAdmin(){
+  const sno=(document.getElementById('sno').value||'').toLowerCase();
+  const sst=document.getElementById('sst').value;
+  const svd=document.getElementById('svd').value;
+  const sss=document.getElementById('sss').value;
+  const stType=document.getElementById('stime-type').value;
+  const sdFrom=document.getElementById('sdate-from').value;
+  const sdTo=document.getElementById('sdate-to').value;
+
+  const allRecs = (window._fbReady && window.recs) ? window.recs : recs;
+
+  const f=allRecs.filter(r=>{
+    if(sno&&!r.no.toLowerCase().includes(sno)&&!r.items.some(it=>(it.name+(it.code||'')).toLowerCase().includes(sno)))return false;
+    if(sst&&r.store!==sst)return false;
+    if(svd){
+      if(svd==='twm'&&r.vGroup!=='twm')return false;
+      if(svd!=='twm'&&r.vGroup!==svd)return false;
+    }
+    if(sss==='pending'&&r.status==='已入庫')return false;
+    if(sss&&sss!=='pending'&&r.status!==sss)return false;
+    if(sdFrom||sdTo){
+      const td=stType==='done'?normDate(r.doneDate||''):normDate(r.date||'');
+      if(!td)return false;
+      if(sdFrom&&td<sdFrom)return false;
+      if(sdTo&&td>sdTo)return false;
+    }
+    return true;
+  });
+
+  const tot=allRecs.length,done=allRecs.filter(r=>r.status==='已入庫').length;
+  const pend=allRecs.filter(r=>r.status==='待覆核').length,dup=allRecs.filter(r=>r.status==='重複單').length;
+  document.getElementById('astats').innerHTML=`
+    <div class="sc"><div class="sc-num">${tot}</div><div class="sc-lbl">總筆數</div></div>
+    <div class="sc"><div class="sc-num" style="color:#27500A">${done}</div><div class="sc-lbl">已入庫</div></div>
+    <div class="sc"><div class="sc-num" style="color:#633806">${pend}</div><div class="sc-lbl">待覆核</div></div>
+    <div class="sc"><div class="sc-num" style="color:#791F1F">${dup}</div><div class="sc-lbl">重複單</div></div>`;
+
+  const el=document.getElementById('admin-result');
+  if(!f.length){el.innerHTML='<div style="text-align:center;padding:24px;color:#888;font-size:13px">無符合記錄</div>';return;}
+
+  const rows=f.map(r=>{const rid=r.fbId||String(r.id);return`<tr>
+      <td style="font-size:12px">${r.store}</td>
+      <td><span class="vbadge ${getVB(r.vGroup)}" style="font-size:11px">${r.vendor}</span></td>
+      <td>
+        <div style="font-size:10px;color:#888;margin-bottom:2px">${r.noLabel}</div>
+        <input class="iedit" value="${r.no}" data-id="${rid}" onchange="updF(this.dataset.id,'no',this.value)" style="font-size:12px;width:100%">
+        ${r.dup?`<div class="dup-warn">⚠️ 疑似重複</div>`:''}
+      </td>
+      <td style="font-size:12px;color:#e07800;max-width:80px">${r.remark?`📝 ${r.remark}`:'<span style="color:#ccc">—</span>'}</td>
+      <td style="font-size:12px;color:#555;white-space:nowrap">${r.date}<br>${r.time}</td>
+      <td style="font-size:12px;white-space:nowrap">${r.doneTime?`<span style="color:#27500A">${r.doneDate}<br>${r.doneTime}</span>`:'<span style="color:#aaa">—</span>'}</td>
+      <td><span class="badge ${r.status==='已入庫'?'b-done':r.status==='重複單'?'b-dup':'b-pending'}">${r.status}</span></td>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${r.status!=='已入庫'?`<button class="mbtn" data-id="${rid}" onclick="markDone(this.dataset.id)" style="color:#27500A;border-color:#639922;font-size:11px">✓ 入庫</button>`:''}
+          <button class="edit-btn" data-id="${rid}" onclick="openAdminEdit(this.dataset.id)" style="font-size:11px">✏️ 修改</button>
+          <button class="mbtn" data-id="${rid}" onclick="showDetail(this.dataset.id)" style="font-size:11px">詳情</button>
+          ${r.status==='已入庫'?`<button class="del-btn" data-id="${rid}" onclick="adminDel(this.dataset.id)" style="font-size:11px">🗑️ 刪除</button>`:''}
+        </div>
+      </td>
+    </tr>`}).join('');
+
+  const cards=f.map(r=>{const rid=r.fbId||String(r.id);return`
+    <div class="admin-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <span class="vbadge ${getVB(r.vGroup)}" style="font-size:11px">${r.vendor}</span>
+          <span style="font-size:11px;color:#888;margin-left:6px">${r.store}</span>
+        </div>
+        <span class="badge ${r.status==='已入庫'?'b-done':r.status==='重複單'?'b-dup':'b-pending'}">${r.status}</span>
+      </div>
+      <div style="font-size:12px;color:#555;margin-bottom:4px">
+        <span style="font-size:10px;color:#888">${r.noLabel}：</span>
+        <span style="font-family:monospace">${r.no}</span>
+        ${r.dup?`<span class="dup-warn">⚠️ 疑似重複</span>`:''}
+      </div>
+      ${r.remark?`<div style="font-size:12px;color:#e07800;margin-bottom:4px">📝 ${r.remark}</div>`:''}
+      <div style="font-size:11px;color:#888;margin-bottom:6px">
+        上傳：${r.date} ${r.time}
+        ${r.doneTime?`　入庫：<span style="color:#27500A">${r.doneDate} ${r.doneTime}</span>`:''}
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${r.status!=='已入庫'?`<button class="mbtn" data-id="${rid}" onclick="markDone(this.dataset.id)" style="color:#27500A;border-color:#639922;font-size:12px">✓ 入庫</button>`:''}
+        <button class="edit-btn" data-id="${rid}" onclick="openAdminEdit(this.dataset.id)" style="font-size:12px">✏️ 修改</button>
+        <button class="mbtn" data-id="${rid}" onclick="showDetail(this.dataset.id)" style="font-size:12px">詳情</button>
+        ${r.status==='已入庫'?`<button class="del-btn" data-id="${rid}" onclick="adminDel(this.dataset.id)" style="font-size:12px">🗑️ 刪除</button>`:''}
+      </div>
+    </div>`}).join('');
+
+  el.innerHTML=`
+    <div class="admin-table-wrap" style="overflow-x:auto">
+      <table class="admin-table">
+        <thead><tr>
+          <th style="width:65px">門市</th>
+          <th style="width:120px">廠商</th>
+          <th style="width:160px">單號</th>
+          <th style="width:80px">備註</th>
+          <th style="width:110px">上傳時間</th>
+          <th style="width:110px">入庫時間</th>
+          <th style="width:65px">狀態</th>
+          <th style="width:85px">操作</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="admin-cards">${cards}</div>`;
+}
+
+function addAI(id){const r=findRec(id);if(r){r.items.push({code:'',name:'',qty:'',m:true});renderAdmin();}}
+function updF(id,f,v){const r=findRec(id);if(r){r[f]=v;checkDup(r);}}
+function updI(id,i,f,v){const r=findRec(id);if(r&&r.items[i])r.items[i][f]=v;}
+function checkDup(r){r.dup=r.no!=='無單號'&&getDataRecs().filter(x=>String(x.id)!==String(r.id)&&x.fbId!==r.fbId&&x.no===r.no).length>0;renderAdmin();}
+function markDone(id){
+  const r=findRec(id);if(!r)return;
+  const now=new Date();
+  if(window._fbReady && window.markDoneFirebase && r.fbId){
+    window.markDoneFirebase(r.fbId);
+  } else {
+    r.status='已入庫';r.dup=false;
+    r.doneTime=now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+    r.doneDate=now.toLocaleDateString('zh-TW');
+    renderAdmin();
+  }
+}
+
+// ===== 總部修改 =====
+function openAdminEdit(id){
+  const r=findRec(id);if(!r)return;
+  adminEditId=r.fbId||r.id;adminEditItems=(r.items||[]).map(it=>({...it}));adminEditPhoto=null;
+  const cfg=VC[r.vk]||{};
+  const vcOptions=Object.entries(VC).map(([k,v])=>`<option value="${k}" ${r.vk===k?'selected':''}>${v.label}</option>`).join('');
+  document.getElementById('admin-edit-form').innerHTML=`
+    <div class="lbl" style="margin-top:0">廠商類型</div>
+    <select id="ae-vk" onchange="onAEVendorChange()">${vcOptions}</select>
+    <div class="lbl"><span id="ae-no-lbl">${cfg.noLabel||'單號'}</span></div>
+    <input type="text" id="ae-no" value="${r.no}" style="font-family:monospace">
+    <div class="lbl">狀態</div>
+    <select id="ae-status">
+      <option value="待覆核" ${r.status==='待覆核'?'selected':''}>待覆核</option>
+      <option value="已入庫" ${r.status==='已入庫'?'selected':''}>已入庫</option>
+      <option value="重複單" ${r.status==='重複單'?'selected':''}>重複單</option>
+    </select>
+    <div class="lbl" style="margin-top:10px">品項明細</div>
+    <div class="cash-box"><div id="ae-items-list"></div>
+    <button class="abtn" onclick="addAEItem()">＋ 新增品項</button></div>
+    <div class="lbl" style="margin-top:10px">備註</div>
+    <textarea id="ae-remark" rows="2">${r.remark||''}</textarea>
+    <div class="lbl" style="margin-top:10px">單據照片</div>
+    <div class="photo-zone" id="ae-pzone" onclick="document.getElementById('ae-fi').click()" style="min-height:80px">
+      ${r.photo?`<img src="${r.photo}" alt="預覽"><div class="pov">✓ 已有照片</div>`:'<div style="font-size:24px">📷</div><span style="font-size:12px;color:#888">點此更換照片</span>'}
+      <input type="file" id="ae-fi" accept="image/*" capture="camera" style="display:none" onchange="handleAEPhoto(this)">
+    </div>`;
+  renderAEItems();
+  document.getElementById('admin-edit-modal').classList.add('open');
+}
+function onAEVendorChange(){
+  const vk=document.getElementById('ae-vk').value;
+  const cfg=VC[vk]||{};
+  const lbl=document.getElementById('ae-no-lbl');
+  if(lbl)lbl.textContent=cfg.noLabel||'單號';
+}
+function renderAEItems(){
+  const el=document.getElementById('ae-items-list');if(!el)return;
+  if(!adminEditItems.length){el.innerHTML='<div style="font-size:12px;color:#888;padding:4px">尚無品項</div>';return;}
+  el.innerHTML=adminEditItems.map((it,i)=>`
+    <div class="irow">
+      <input type="text" value="${it.code||''}" placeholder="品號" style="width:70px;font-family:monospace;font-size:12px" oninput="adminEditItems[${i}].code=this.value">
+      <input type="text" value="${it.name}" placeholder="品名" style="flex:1" oninput="adminEditItems[${i}].name=this.value">
+      <input type="text" value="${it.qty||''}" placeholder="數量" style="width:50px;text-align:center" oninput="adminEditItems[${i}].qty=this.value">
+      ${adminEditItems.length>1?`<button class="dbtn" onclick="adminEditItems.splice(${i},1);renderAEItems()">✕</button>`:'<div style="width:20px"></div>'}
+    </div>`).join('');
+}
+function addAEItem(){adminEditItems.push({code:'',name:'',qty:'',m:true});renderAEItems();}
+function handleAEPhoto(inp){
+  const f=inp.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    adminEditPhoto=e.target.result;
+    const z=document.getElementById('ae-pzone');
+    if(z)z.innerHTML=`<img src="${adminEditPhoto}" alt="預覽"><div class="pov">✓ 新照片</div><input type="file" id="ae-fi" accept="image/*" capture="camera" style="display:none" onchange="handleAEPhoto(this)">`;
+  };
+  reader.readAsDataURL(f);
+}
+async function saveAdminEdit(){
+  const r=findRec(adminEditId);if(!r)return;
+  const newVk=document.getElementById('ae-vk').value;
+  const newNo=document.getElementById('ae-no').value.trim();
+  const newStatus=document.getElementById('ae-status').value;
+  if(!newNo){alert('單號不能為空');return;}
+  const cfg=VC[newVk]||VC[r.vk]||{};
+  const updateData={
+    vk:newVk, vendor:cfg.label||r.vendor, vGroup:cfg.vGroup||r.vGroup,
+    noLabel:cfg.noLabel||r.noLabel, no:newNo, status:newStatus,
+    dup:newStatus==='重複單',
+    remark:document.getElementById('ae-remark').value.trim(),
+    items:adminEditItems.filter(it=>it.name&&it.name.trim()).map(it=>({...it}))
+  };
+  if(adminEditPhoto)updateData.photo=adminEditPhoto;
+  if(window._fbReady && window.updateFirebase && typeof adminEditId==='string'){
+    await window.updateFirebase(adminEditId, updateData);
+  } else {
+    Object.assign(r, updateData);
+    renderAdmin();
+  }
+  closeAdminEdit();
+}
+function closeAdminEdit(){document.getElementById('admin-edit-modal').classList.remove('open');adminEditId=null;adminEditPhoto=null;}
+
+// ===== 詳情頁 =====
+function showDetail(id){
+  const r=findRec(id);if(!r)return;
+  document.getElementById('dcontent').innerHTML=`
+    <div style="display:flex;gap:12px;margin-bottom:14px">
+      <div style="flex:0 0 100px;height:120px;background:#f5f5f7;border:1px solid #e5e5ea;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;${r.photo?'cursor:zoom-in':''}" ${r.photo?'onclick="openLightbox(this.querySelector(\'img\').src)"':''}>
+        ${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:contain" alt="單據">`:'<div style="font-size:36px">📄</div>'}
+      </div>
+      <div style="flex:1;min-width:0">
+        <span class="vbadge ${getVB(r.vGroup)}" style="margin-bottom:8px;display:inline-block">${r.vendor}</span>
+        <div class="fgrid" style="margin-top:6px">
+          <div class="fitem"><div class="fitem-l">門市</div><div class="fitem-v">${r.store}</div></div>
+          <div class="fitem"><div class="fitem-l">${r.noLabel}</div><div class="fitem-v" style="font-family:monospace;font-size:12px">${r.no}</div></div>
+          <div class="fitem"><div class="fitem-l">廠商</div><div class="fitem-v" style="font-size:12px">${r.vendor}</div></div>
+          <div class="fitem"><div class="fitem-l">狀態</div><div class="fitem-v"><span class="badge ${r.status==='已入庫'?'b-done':r.status==='重複單'?'b-dup':'b-pending'}">${r.status}</span></div></div>
+        </div>
+      </div>
+    </div>
+    ${r.doneTime
+      ?`<div class="info-green" style="display:block;margin-bottom:8px">✅ <strong>入庫時間：</strong>${r.doneDate} ${r.doneTime}</div>`
+      :`<div class="info-gray" style="display:block;margin-bottom:8px">⏳ 尚未入庫</div>`}
+    ${r.remark?`<div class="info-yellow" style="display:block;margin-bottom:8px">📝 <strong>備註：</strong>${r.remark}</div>`:''}
+    <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px">品項明細</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">品名</th>
+        <th style="text-align:center;padding:6px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500;width:40px">數量</th>
+      </tr></thead>
+      <tbody>${r.items.map(it=>`<tr>
+        <td style="padding:7px 8px;border-bottom:1px solid #f5f5f7">
+          ${it.code&&it.code!=='?'?`<span style="font-size:10px;color:#888;font-family:monospace">[${it.code}] </span>`:''}${it.name}${it.m?'<span class="mtag">手填</span>':''}
+        </td>
+        <td style="padding:7px 8px;border-bottom:1px solid #f5f5f7;text-align:center">${it.qty}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    ${r.status!=='已入庫'?`<button class="gbtn" style="margin-top:14px" data-id="${r.fbId||r.id}" onclick="markDone(this.dataset.id);showScreen('s-admin')">✓ 確認入庫</button>`:''}
+    ${r.status==='已入庫'?`<button class="gbtn" style="margin-top:10px;background:#c00" data-id="${r.fbId||r.id}" onclick="adminDel(this.dataset.id)">🗑️ 刪除此筆記錄</button>`:''}`;
+  showScreen('s-detail');
+}
+
+// ===== 總部刪除 =====
+function adminDel(id){
+  const r=findRec(id);if(!r)return;
+  // 使用自訂確認視窗（避免手機瀏覽器封鎖 confirm）
+  delId=id;
+  document.getElementById('del-msg').innerHTML=`確定要刪除此筆已入庫記錄嗎？<br><br><b>${r.noLabel}：${r.no}</b><br>${r.vendor}　${r.date}<br><br>⚠️ 刪除後無法復原！`;
+  document.getElementById('del-modal').classList.add('open');
+  // 覆寫確認按鈕行為（刪除後回總表）
+  window._adminDelMode=true;
+}
+
+async function confirmDel(){
+  const isAdminDel=window._adminDelMode;
+  window._adminDelMode=false;
+  const id=delId;
+  if(window._fbReady && window.deleteFirebase && typeof id==='string'){
+    await window.deleteFirebase(id);
+  } else {
+    recs=recs.filter(r=>String(r.id)!==String(id)&&r.fbId!==id);
+    if(isAdminDel)renderAdmin();else renderHist();
+  }
+  closeDel();
+  if(isAdminDel && document.getElementById('s-detail').classList.contains('active')){
+    showScreen('s-admin');
+  }
+}
+function renderVendorList(){
+  const el=document.getElementById('vendor-list');if(!el)return;
+  const builtIn=Object.entries(VC_BUILTIN).map(([k,v])=>({key:k,...v,builtIn:true}));
+  const all=[...builtIn,...customVendors];
+  if(!all.length){el.innerHTML='<div style="color:#888;font-size:13px;text-align:center;padding:12px">尚無廠商</div>';return;}
+  el.innerHTML=all.map((v,i)=>`
+    <div class="vendor-row">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500">${v.label}</div>
+        <div style="font-size:11px;color:#888;margin-top:2px">${v.noLabel}　${v.noEx?'格式：'+v.noEx:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        ${v.builtIn
+          ?`<button class="edit-btn" onclick="openEditVendor('${v.key}',true)">✏️ 修改</button>`
+          :`<button class="edit-btn" onclick="openEditVendor('${v.key}',false)">✏️ 修改</button>
+            <button class="del-btn" onclick="delCustomVendor('${v.key}')">刪除</button>`}
+      </div>
+    </div>`).join('');
+}
+function addVendor(){
+  const label=document.getElementById('nv-label').value.trim();
+  const noLabel=document.getElementById('nv-nolabel').value.trim();
+  const noEx=document.getElementById('nv-noex').value.trim();
+  const msg=document.getElementById('nv-msg');
+  if(!label){msg.style.color='#c00';msg.textContent='請填寫廠商名稱';return;}
+  if(!noLabel){msg.style.color='#c00';msg.textContent='請填寫單號欄位名稱';return;}
+  const key='custom-'+(customVendorId++);
+  const newV={key,label,vGroup:key,noLabel,noEx:noEx||'請輸入單號',
+    hasOcr:false,needsManual:false,requirePhoto:true,itemLabel:'品名數量',itemRequired:false,builtIn:false};
+  customVendors.push(newV);
+  VC[key]={...newV};
+  refreshVendorSelects();
+  document.getElementById('nv-label').value='';
+  document.getElementById('nv-nolabel').value='';
+  document.getElementById('nv-noex').value='';
+  msg.style.color='#27500A';msg.textContent=`✓ 已新增「${label}」，店長登入後即可選用`;
+  renderVendorList();
+  if(window.saveVendorsToFirebase) window.saveVendorsToFirebase();
+  setTimeout(()=>{msg.textContent='';},4000);
+}
+
+let editVendorKey=null;
+function openEditVendor(key, isBuiltIn){
+  // 找廠商資料（內建或自訂都找得到）
+  const v=VC[key];if(!v)return;
+  editVendorKey=key;
+  const div=document.createElement('div');
+  div.id='ev-container';
+  div.innerHTML=`
+  <div class="modal-overlay open">
+    <div class="modal">
+      <div class="modal-title">✏️ 修改廠商</div>
+      ${isBuiltIn?`<div class="info-blue" style="display:block;margin-bottom:12px">修改後會即時反映到門市端的選單</div>`:''}
+      <div class="lbl" style="margin-top:0">廠商名稱</div>
+      <input type="text" id="ev-label" value="${v.label}">
+      <div class="lbl">單號欄位名稱</div>
+      <input type="text" id="ev-nolabel" value="${v.noLabel}">
+      <div class="lbl">單號格式說明</div>
+      <input type="text" id="ev-noex" value="${v.noEx||''}">
+      <div class="lbl">品項欄位名稱</div>
+      <input type="text" id="ev-itemlabel" value="${v.itemLabel||'品名數量'}">
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="gbtn" style="flex:1" onclick="saveEditVendor()">儲存</button>
+        <button class="mbtn" style="flex:1;padding:10px" onclick="closeEditVendor()">取消</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
+}
+function rebuildVsel(){
+  const vsel=document.getElementById('vsel');
+  if(!vsel)return;
+  const current=vsel.value;
+  const twmKeys=['twm-phone','twm-sim','twm-film','twm-repair'];
+  const accKeys=['guangji','junting'];
+  const cashKeys=['cash-ys','cash-lh','cash-other'];
+  let html='<option value="">— 請選擇 —</option>';
+  html+=`<optgroup label="台哥大">${twmKeys.map(k=>VC[k]?`<option value="${k}">${VC[k].label}</option>`:'').join('')}</optgroup>`;
+  html+=`<optgroup label="配件廠商">${accKeys.map(k=>VC[k]?`<option value="${k}">${VC[k].label}</option>`:'').join('')}</optgroup>`;
+  html+=`<optgroup label="現金盤">${cashKeys.map(k=>VC[k]?`<option value="${k}">${VC[k].label}</option>`:'').join('')}</optgroup>`;
+  if(customVendors.length){
+    html+=`<optgroup label="自訂廠商">${customVendors.map(v=>`<option value="${v.key}">${v.label}</option>`).join('')}</optgroup>`;
+  }
+  vsel.innerHTML=html;
+  if(current)vsel.value=current;
+}
+
+function saveEditVendor(){
+  const newLabel=document.getElementById('ev-label').value.trim();
+  const newNoLabel=document.getElementById('ev-nolabel').value.trim();
+  const newNoEx=document.getElementById('ev-noex').value.trim();
+  const newItemLabel=document.getElementById('ev-itemlabel').value.trim();
+  if(!newLabel){alert('廠商名稱不能為空');return;}
+  if(!newNoLabel){alert('單號欄位名稱不能為空');return;}
+  if(VC[editVendorKey]){
+    VC[editVendorKey].label=newLabel;
+    VC[editVendorKey].noLabel=newNoLabel;
+    VC[editVendorKey].noEx=newNoEx;
+    VC[editVendorKey].itemLabel=newItemLabel||'品名數量';
+  }
+  const cv=customVendors.find(v=>v.key===editVendorKey);
+  if(cv){
+    cv.label=newLabel;cv.noLabel=newNoLabel;
+    cv.noEx=newNoEx;cv.itemLabel=newItemLabel||'品名數量';
+  }
+  rebuildVsel();
+  refreshVendorSelects();
+  closeEditVendor();
+  renderVendorList();
+  // 自動儲存到 Firebase
+  if(window.saveVendorsToFirebase) window.saveVendorsToFirebase();
+}
+function closeEditVendor(){
+  const c=document.getElementById('ev-container');if(c)c.remove();
+  editVendorKey=null;
+}
+function delCustomVendor(key){
+  if(!confirm('確定要刪除此廠商嗎？'))return;
+  customVendors=customVendors.filter(v=>v.key!==key);
+  delete VC[key];
+  refreshVendorSelects();
+  renderVendorList();
+}
+function refreshVendorSelects(){
+  // 更新門市端廠商選單
+  const vsel=document.getElementById('vsel');
+  if(vsel){
+    const old=vsel.querySelector('optgroup[label="自訂廠商"]');
+    if(old)old.remove();
+    if(customVendors.length){
+      const og=document.createElement('optgroup');og.label='自訂廠商';
+      customVendors.forEach(v=>{
+        const o=document.createElement('option');
+        o.value=v.key;o.textContent=v.label;
+        og.appendChild(o);
+      });
+      vsel.appendChild(og);
+    }
+  }
+  // 更新總部廠商篩選
+  const svd=document.getElementById('svd');
+  if(svd){
+    svd.querySelectorAll('option[data-custom]').forEach(o=>o.remove());
+    customVendors.forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v.key;o.textContent=v.label;
+      o.setAttribute('data-custom','1');
+      svd.appendChild(o);
+    });
+  }
+}
+
+// ===== 初始化 =====
+renderLoginHints();
+</script>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCAPljha2I7qqFU49GV2UJC2F64HoKRqnc",
+  authDomain: "telecom-invoice.firebaseapp.com",
+  projectId: "telecom-invoice",
+  storageBucket: "telecom-invoice.firebasestorage.app",
+  messagingSenderId: "97406219385",
+  appId: "1:97406219385:web:bff8bbceba3d36536810a8"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window._db = db;
+window._fbReady = true;
+window._addDoc = addDoc;
+window._collection = collection;
+window._doc = doc;
+window._updateDoc = updateDoc;
+window._deleteDoc = deleteDoc;
+window._onSnapshot = onSnapshot;
+window._serverTimestamp = serverTimestamp;
+window._query = query;
+window._orderBy = orderBy;
+
+// 即時監聽 Firestore 資料
+async function loadFromFirestore(){
+  try {
+    const q = query(collection(db,'invoices'), orderBy('createdAt','desc'));
+    onSnapshot(q, (snapshot)=>{
+      window.recs = snapshot.docs.map(d=>({fbId:d.id, ...d.data()}));
+      if(document.getElementById('s-admin').classList.contains('active')) renderAdmin();
+      if(window.cu && window.cu.role==='store' && document.getElementById('s-store').classList.contains('active')) renderHist();
+      if(window.cu && window.cu.role==='admin' && document.getElementById('s-admin').classList.contains('active')) renderAdmin();
+    });
+    console.log('Firebase 連線成功');
+    window._fbLoaded = true;
+  } catch(e){
+    console.error('Firebase 載入失敗:', e);
+  }
+}
+
+loadFromFirestore();
+
+// 照片壓縮（存入 Firestore，壓縮到 200KB 以內）
+async function compressPhoto(dataUrl){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      const maxW = 800;
+      let w = img.width, h = img.height;
+      if(w > maxW){h = Math.round(h*maxW/w); w = maxW;}
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg', 0.6));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// 送出單據到 Firestore（照片壓縮後直接存入）
+window.doSendFirebase = async function(vk, cfg, manNo, remark, photo, manualItems){
+  const msg = document.getElementById('smsg');
+  msg.style.color='#0C447C'; msg.textContent='上傳中…';
+  try {
+    let photoData = '';
+    if(photo){
+      photoData = await compressPhoto(photo);
+    }
+    const fno = manNo || ('INV-'+Date.now().toString().slice(-8));
+    const now = new Date();
+    const isDup = window.recs ? window.recs.some(r=>r.store===cu.store && r.no===fno) : false;
+    const items = manualItems.filter(it=>it.name&&it.name.trim()).map(it=>({code:'',name:it.name,qty:it.qty||'1',m:true}));
+
+    await addDoc(collection(db,'invoices'),{
+      store: cu.store,
+      vk, vendor: cfg.label, vGroup: cfg.vGroup, noLabel: cfg.noLabel,
+      no: fno, items, remark,
+      time: now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
+      date: now.toLocaleDateString('zh-TW'),
+      status: isDup?'重複單':'待覆核',
+      photo: photoData,
+      dup: isDup, ocrP: false,
+      createdAt: serverTimestamp()
+    });
+    msg.style.color='#27500A'; msg.textContent='✓ 已送出，等待總部覆核';
+    setTimeout(()=>{msg.textContent='';},3000);
+  } catch(e){
+    msg.style.color='#c00'; msg.textContent='上傳失敗：'+e.message;
+    console.error(e);
+  }
+};
+
+// 入庫
+window.markDoneFirebase = async function(fbId){
+  if(!fbId)return;
+  const now = new Date();
+  await updateDoc(doc(db,'invoices',fbId),{
+    status:'已入庫',
+    doneTime: now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
+    doneDate: now.toLocaleDateString('zh-TW')
+  });
+};
+
+// 刪除
+window.deleteFirebase = async function(fbId){
+  if(!fbId)return;
+  await deleteDoc(doc(db,'invoices',fbId));
+};
+
+// 修改
+window.updateFirebase = async function(fbId, data){
+  if(!fbId)return;
+  await updateDoc(doc(db,'invoices',fbId), data);
+};
+
+// ===== 廠商設定存 Firebase =====
+window.saveVendorsToFirebase = async function(){
+  try {
+    const data = {
+      customVendors: customVendors,
+      vcOverrides: {}
+    };
+    // 記錄內建廠商被修改的部分
+    Object.entries(VC).forEach(([k,v])=>{
+      if(VC_BUILTIN[k]){
+        const orig=VC_BUILTIN[k];
+        if(v.label!==orig.label||v.noLabel!==orig.noLabel||v.noEx!==orig.noEx||v.itemLabel!==orig.itemLabel){
+          data.vcOverrides[k]={label:v.label,noLabel:v.noLabel,noEx:v.noEx,itemLabel:v.itemLabel};
+        }
+      }
+    });
+    await updateDoc(doc(db,'settings','vendors'), data).catch(async ()=>{
+      await addDoc(collection(db,'settings'), {...data, _id:'vendors'});
+    });
+    // 用 set 建立或更新
+    const {setDoc} = await import("https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js");
+    await setDoc(doc(db,'settings','vendors'), data);
+    console.log('廠商設定已儲存');
+  } catch(e){ console.error('儲存廠商設定失敗:',e); }
+};
+
+window.loadVendorsFromFirebase = async function(){
+  try {
+    const {getDoc, setDoc} = await import("https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js");
+    const snap = await getDoc(doc(db,'settings','vendors'));
+    if(snap.exists()){
+      const data=snap.data();
+      // 載入自訂廠商
+      if(data.customVendors && data.customVendors.length){
+        customVendors=data.customVendors;
+        customVendors.forEach(v=>{VC[v.key]={...v};});
+        refreshVendorSelects();
+      }
+      // 套用內建廠商修改
+      if(data.vcOverrides){
+        Object.entries(data.vcOverrides).forEach(([k,v])=>{
+          if(VC[k])Object.assign(VC[k],v);
+        });
+        rebuildVsel();
+      }
+      console.log('廠商設定已載入');
+    }
+  } catch(e){ console.error('載入廠商設定失敗:',e); }
+};
+
+// ===== 門市設定存 Firebase =====
+window.saveStoresToFirebase = async function(){
+  try {
+    const {setDoc} = await import("https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js");
+    await setDoc(doc(db,'settings','stores'), {storeList});
+    console.log('門市設定已儲存');
+  } catch(e){ console.error('儲存門市設定失敗:',e); }
+};
+
+window.loadStoresFromFirebase = async function(){
+  try {
+    const {getDoc} = await import("https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js");
+    const snap = await getDoc(doc(db,'settings','stores'));
+    if(snap.exists()){
+      const data=snap.data();
+      if(data.storeList && data.storeList.length){
+        storeList=data.storeList;
+        renderLoginHints();
+        const sst=document.getElementById('sst');
+        if(sst){
+          sst.innerHTML='<option value="">全部門市</option>'+storeList.map(s=>`<option>${s.name}</option>`).join('');
+        }
+        console.log('門市設定已載入');
+      }
+    }
+  } catch(e){ console.error('載入門市設定失敗:',e); }
+};
+
+// ===== 批次刪除 =====
+window.batchDeleteFirebase = async function(fbIds){
+  try {
+    const promises = fbIds.map(id=>deleteDoc(doc(db,'invoices',id)));
+    await Promise.all(promises);
+    return true;
+  } catch(e){
+    console.error('批次刪除失敗:',e);
+    return false;
+  }
+};
+
+// 啟動時載入設定
+loadFromFirestore();
+window.loadVendorsFromFirebase();
+window.loadStoresFromFirebase();
+</script>
