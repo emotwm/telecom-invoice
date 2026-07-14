@@ -241,7 +241,13 @@ textarea{resize:vertical}
     </div>
 
     <div class="card">
-      <div style="font-size:14px;font-weight:600;margin-bottom:10px">今日已上傳記錄</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:14px;font-weight:600">已上傳記錄</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="date" id="hist-date" style="font-size:12px;padding:4px 8px;border:1px solid #e5e5ea;border-radius:6px;background:#f5f5f7" onchange="renderHist()">
+          <button class="mbtn" onclick="document.getElementById('hist-date').value='';renderHist()" style="font-size:11px">今日</button>
+        </div>
+      </div>
       <div id="store-hist"><div style="text-align:center;color:#888;font-size:13px;padding:16px">尚無記錄</div></div>
     </div>
   </div>
@@ -293,6 +299,7 @@ textarea{resize:vertical}
       <div><div class="topbar-title">總部稽核總表</div><div class="topbar-sub" id="adate"></div></div>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="mbtn" onclick="goStats()" style="color:#6B21A8;border-color:#6B21A8">📊 統計</button>
       <button class="mbtn" onclick="goStores()" style="color:#27500A;border-color:#27500A">🏪 門市管理</button>
       <button class="mbtn" onclick="goVendors()" style="color:#185FA5;border-color:#185FA5">⚙️ 廠商管理</button>
       <button class="mbtn" onclick="logout()">登出</button>
@@ -381,6 +388,31 @@ textarea{resize:vertical}
   </div>
   <div class="page" style="max-width:600px">
     <div class="card" id="dcontent"></div>
+  </div>
+</div>
+
+<!-- ===== 統計頁 ===== -->
+<div id="s-stats" class="screen">
+  <div class="topbar">
+    <button class="mbtn" onclick="showScreen('s-admin')">← 返回</button>
+    <div class="topbar-title">進貨統計</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="page" style="max-width:800px">
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">篩選條件</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="stat-store" onchange="renderStats()" style="font-size:12px;padding:5px 8px;border:1px solid #e5e5ea;border-radius:6px;background:#f5f5f7">
+          <option value="">全部門市</option>
+        </select>
+        <input type="date" id="stat-from" onchange="renderStats()" style="font-size:12px;padding:5px 8px;border:1px solid #e5e5ea;border-radius:6px;background:#f5f5f7">
+        <span style="font-size:12px;color:#888">至</span>
+        <input type="date" id="stat-to" onchange="renderStats()" style="font-size:12px;padding:5px 8px;border:1px solid #e5e5ea;border-radius:6px;background:#f5f5f7">
+        <button class="mbtn" onclick="setStatRange('month')" style="font-size:11px">本月</button>
+        <button class="mbtn" onclick="setStatRange('all')" style="font-size:11px">全部</button>
+      </div>
+    </div>
+    <div id="stats-content"></div>
   </div>
 </div>
 
@@ -564,7 +596,130 @@ function closeLightbox(){
   document.getElementById('lightbox').classList.remove('open');
   document.getElementById('lightbox-img').src='';
 }
-function goVendors(){showScreen('s-vendors');renderVendorList();}
+function goStats(){
+  showScreen('s-stats');
+  // 更新門市選單
+  const sel=document.getElementById('stat-store');
+  if(sel){
+    sel.innerHTML='<option value="">全部門市</option>'+storeList.map(s=>`<option>${s.name}</option>`).join('');
+  }
+  setStatRange('month');
+}
+
+function setStatRange(type){
+  const now=new Date();
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if(type==='month'){
+    document.getElementById('stat-from').value=fmt(new Date(now.getFullYear(),now.getMonth(),1));
+    document.getElementById('stat-to').value=fmt(now);
+  } else {
+    document.getElementById('stat-from').value='';
+    document.getElementById('stat-to').value='';
+  }
+  renderStats();
+}
+
+function renderStats(){
+  const el=document.getElementById('stats-content');if(!el)return;
+  const allRecs=getDataRecs();
+  const filterStore=document.getElementById('stat-store').value;
+  const fromDate=document.getElementById('stat-from').value;
+  const toDate=document.getElementById('stat-to').value;
+
+  let f=allRecs.filter(r=>{
+    if(filterStore&&r.store!==filterStore)return false;
+    if(fromDate||toDate){
+      const d=normDate(r.date||'');
+      if(fromDate&&d<fromDate)return false;
+      if(toDate&&d>toDate)return false;
+    }
+    return true;
+  });
+
+  if(!f.length){el.innerHTML='<div class="card" style="text-align:center;color:#888;padding:24px">無符合記錄</div>';return;}
+
+  // 統計：各門市
+  const byStore={};
+  storeList.forEach(s=>{byStore[s.name]={total:0,done:0};});
+  f.forEach(r=>{
+    if(!byStore[r.store])byStore[r.store]={total:0,done:0};
+    byStore[r.store].total++;
+    if(r.status==='已入庫')byStore[r.store].done++;
+  });
+
+  // 統計：各廠商
+  const byVendor={};
+  f.forEach(r=>{
+    if(!byVendor[r.vendor])byVendor[r.vendor]={total:0,done:0};
+    byVendor[r.vendor].total++;
+    if(r.status==='已入庫')byVendor[r.vendor].done++;
+  });
+
+  // 統計：每日趨勢
+  const byDate={};
+  f.forEach(r=>{
+    const d=r.date||'未知';
+    if(!byDate[d])byDate[d]=0;
+    byDate[d]++;
+  });
+  const sortedDates=Object.keys(byDate).sort();
+
+  el.innerHTML=`
+    <!-- 總覽 -->
+    <div class="stat-grid" style="margin-bottom:12px">
+      <div class="sc"><div class="sc-num">${f.length}</div><div class="sc-lbl">總進貨筆數</div></div>
+      <div class="sc"><div class="sc-num" style="color:#27500A">${f.filter(r=>r.status==='已入庫').length}</div><div class="sc-lbl">已入庫</div></div>
+      <div class="sc"><div class="sc-num" style="color:#633806">${f.filter(r=>r.status==='待覆核').length}</div><div class="sc-lbl">待覆核</div></div>
+      <div class="sc"><div class="sc-num" style="color:#791F1F">${f.filter(r=>r.status==='重複單').length}</div><div class="sc-lbl">重複單</div></div>
+    </div>
+
+    <!-- 各門市統計 -->
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">📍 各門市進貨量</div>
+      ${Object.entries(byStore).filter(([,v])=>v.total>0).map(([store,v])=>`
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:80px;font-size:13px;font-weight:500">${store}</div>
+          <div style="flex:1;background:#f0f0f0;border-radius:20px;height:20px;overflow:hidden">
+            <div style="background:#185FA5;height:100%;width:${Math.round(v.total/f.length*100)}%;border-radius:20px;transition:width 0.3s"></div>
+          </div>
+          <div style="font-size:12px;color:#555;white-space:nowrap">${v.total} 筆（已入庫 ${v.done}）</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- 各廠商統計 -->
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">🏢 各廠商進貨量</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">廠商</th>
+          <th style="text-align:center;padding:6px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">總筆數</th>
+          <th style="text-align:center;padding:6px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">已入庫</th>
+          <th style="text-align:center;padding:6px 8px;border-bottom:1px solid #e5e5ea;font-size:11px;color:#888;font-weight:500">待覆核</th>
+        </tr></thead>
+        <tbody>${Object.entries(byVendor).sort((a,b)=>b[1].total-a[1].total).map(([vendor,v])=>`
+          <tr>
+            <td style="padding:7px 8px;border-bottom:1px solid #f5f5f7">${vendor}</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #f5f5f7;text-align:center;font-weight:500">${v.total}</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #f5f5f7;text-align:center;color:#27500A">${v.done}</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #f5f5f7;text-align:center;color:#633806">${v.total-v.done}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 每日趨勢 -->
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">📅 每日進貨趨勢</div>
+      ${sortedDates.slice(-14).map(d=>`
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="width:90px;font-size:11px;color:#888">${d}</div>
+          <div style="flex:1;background:#f0f0f0;border-radius:20px;height:16px;overflow:hidden">
+            <div style="background:#185FA5;height:100%;width:${Math.round(byDate[d]/Math.max(...Object.values(byDate))*100)}%;border-radius:20px"></div>
+          </div>
+          <div style="font-size:12px;color:#555;width:30px;text-align:right">${byDate[d]}</div>
+        </div>`).join('')}
+    </div>`;
+}
 
 // ===== 批次刪除 =====
 function openBatchDel(){
@@ -645,43 +800,33 @@ function doLogin(){
   if(acc&&pws[u]===p){
     cu={...acc,username:u};
     document.getElementById('lerr').textContent='';
-    if(acc.role==='admin'){
-      document.getElementById('adate').textContent=new Date().toLocaleDateString('zh-TW')+' 截止 16:00';
-      showScreen('s-admin');
-      if(window._fbReady && window.recs){
-        renderAdmin();
-      } else {
-        let tries=0;
-        const wait=setInterval(()=>{
-          tries++;
-          if(window.recs||tries>6){clearInterval(wait);renderAdmin();}
-        },500);
-      }
-    } else {
-      document.getElementById('store-name').textContent=acc.store;
-      manualItems=[];
-      showScreen('s-store');
-      // 等 Firebase 資料載入後再渲染
-      if(window._fbReady && window.recs){
-        renderHist();
-      } else {
-        // 最多等3秒
-        let tries=0;
-        const wait=setInterval(()=>{
-          tries++;
-          if(window.recs||tries>6){clearInterval(wait);renderHist();}
-        },500);
-      }
-    }
+    try{sessionStorage.setItem('cu_u',u);sessionStorage.setItem('cu_p',p);}catch(e){}
+    doAfterLogin();
   } else {
     document.getElementById('lerr').textContent='帳號或密碼錯誤';
   }
 }
+
+function doAfterLogin(){
+  if(cu.role==='admin'){
+    document.getElementById('adate').textContent=new Date().toLocaleDateString('zh-TW')+' 截止 16:00';
+    showScreen('s-admin');
+    if(window._fbReady && window.recs){renderAdmin();}
+    else{let t=0;const w=setInterval(()=>{t++;if(window.recs||t>6){clearInterval(w);renderAdmin();}},500);}
+  } else {
+    document.getElementById('store-name').textContent=cu.store;
+    manualItems=[];showScreen('s-store');
+    if(window._fbReady && window.recs){renderHist();}
+    else{let t=0;const w=setInterval(()=>{t++;if(window.recs||t>6){clearInterval(w);renderHist();}},500);}
+  }
+}
+
 document.getElementById('login-btn').addEventListener('click',doLogin);
 document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 function logout(){
   cu=null;photo=null;manualItems=[];
+  try{sessionStorage.removeItem('cu_u');sessionStorage.removeItem('cu_p');}catch(e){}
   document.getElementById('lu').value='';document.getElementById('lp').value='';
   document.getElementById('vsel').value='';document.getElementById('smsg').textContent='';
   resetPhoto();onVC();showScreen('s-login');
@@ -848,9 +993,23 @@ function doSend(){
 
 function renderHist(){
   const el=document.getElementById('store-hist');
-  const data = (window._fbReady && window.recs) ? window.recs : recs;
-  const my=data.filter(r=>r.store===cu.store);
-  if(!my.length){el.innerHTML='<div style="text-align:center;color:#888;font-size:13px;padding:16px">今日尚無上傳記錄</div>';return;}
+  const data=(window._fbReady && window.recs) ? window.recs : recs;
+  const histDate=document.getElementById('hist-date');
+  const filterDate=histDate?histDate.value:'';
+  const today=new Date().toLocaleDateString('zh-TW');
+  let my=data.filter(r=>r.store===cu.store);
+  if(filterDate){
+    // 依選擇日期篩選
+    const fd=filterDate.replace(/-/g,'/');
+    my=my.filter(r=>r.date===fd);
+  } else {
+    // 預設顯示今日
+    my=my.filter(r=>r.date===today);
+  }
+  if(!my.length){
+    el.innerHTML=`<div style="text-align:center;color:#888;font-size:13px;padding:16px">${filterDate?'該日期':'今日'}尚無上傳記錄</div>`;
+    return;
+  }
   el.innerHTML=my.map(r=>{
     const canEdit=r.status!=='已入庫';
     return `<div class="hrow">
@@ -1455,6 +1614,28 @@ function refreshVendorSelects(){
 
 // ===== 初始化 =====
 renderLoginHints();
+
+// 自動恢復登入狀態
+try{
+  const su=sessionStorage.getItem('cu_u');
+  const sp=sessionStorage.getItem('cu_p');
+  if(su&&sp){
+    const {accs,pws}=buildACCS();
+    const acc=accs[su];
+    if(acc&&pws[su]===sp){
+      cu={...acc,username:su};
+      // 等 Firebase 和門市設定都載入後再恢復
+      let t=0;
+      const w=setInterval(()=>{
+        t++;
+        if((window.recs!==undefined||t>10)){
+          clearInterval(w);
+          doAfterLogin();
+        }
+      },600);
+    }
+  }
+}catch(e){}
 </script>
 
 <!-- Firebase SDK -->
@@ -1514,12 +1695,12 @@ async function compressPhoto(dataUrl){
     const img = new Image();
     img.onload = ()=>{
       const canvas = document.createElement('canvas');
-      const maxW = 800;
+      const maxW = 600;
       let w = img.width, h = img.height;
       if(w > maxW){h = Math.round(h*maxW/w); w = maxW;}
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      resolve(canvas.toDataURL('image/jpeg', 0.6));
+      resolve(canvas.toDataURL('image/jpeg', 0.5));
     };
     img.src = dataUrl;
   });
