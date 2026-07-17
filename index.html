@@ -851,7 +851,7 @@ function onVC(){
   // 單號欄位
   document.getElementById('no-wrap').style.display='block';
   document.getElementById('no-lbl-txt').textContent=cfg.noLabel;
-  document.getElementById('no-lbl-ex').textContent=cfg.noEx;
+  document.getElementById('no-lbl-ex').textContent='（非必填，但照片一定要拍清楚唷！）';
   document.getElementById('no-inp').placeholder=cfg.noEx;
   document.getElementById('no-inp').value='';
 
@@ -868,7 +868,7 @@ function onVC(){
   const lbl=document.getElementById('manual-lbl');
   const tag=document.getElementById('manual-tag');
   lbl.textContent=cfg.itemLabel||'品項';
-  tag.textContent='選填';tag.style.background='#EAF3DE';tag.style.color='#27500A';
+  tag.textContent='非必填，但照片一定要拍清楚唷！';tag.style.background='#EAF3DE';tag.style.color='#27500A';
   manualItems=[];
   renderManual();
   document.getElementById('remark-wrap').style.display='block';
