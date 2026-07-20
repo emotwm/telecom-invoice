@@ -820,6 +820,24 @@ function formatDate(d){
   const dt=d||new Date();
   return `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()}`;
 }
+
+// 客戶端照片壓縮（給修改功能用）
+function compressPhotoClient(dataUrl){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      const maxW=1200;
+      let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg',0.75));
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
 // ===== 登入 =====
 function renderLoginHints(){
   const el=document.getElementById('store-login-hints');if(!el)return;
@@ -1132,7 +1150,14 @@ async function saveEdit(){
   const newRemark=document.getElementById('edit-remark').value.trim();
   const newItems=editItems.filter(it=>it.name&&it.name.trim()).map(it=>({...it,m:true}));
   const updateData={no:newNo,remark:newRemark,items:newItems};
-  if(editPhoto)updateData.photo=editPhoto;
+
+  // 壓縮照片後再儲存
+  if(editPhoto){
+    try{
+      const compressed=await compressPhotoClient(editPhoto);
+      updateData.photo=compressed;
+    }catch(e){updateData.photo=editPhoto;}
+  }
 
   closeEdit();
 
@@ -1393,7 +1418,10 @@ async function saveAdminEdit(){
     remark:document.getElementById('ae-remark').value.trim(),
     items:adminEditItems.filter(it=>it.name&&it.name.trim()).map(it=>({...it}))
   };
-  if(adminEditPhoto)updateData.photo=adminEditPhoto;
+  if(adminEditPhoto){
+    try{updateData.photo=await compressPhotoClient(adminEditPhoto);}
+    catch(e){updateData.photo=adminEditPhoto;}
+  }
   if(window._fbReady && window.updateFirebase && typeof adminEditId==='string'){
     await window.updateFirebase(adminEditId, updateData);
     let refreshCount=0;
