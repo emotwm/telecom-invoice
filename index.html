@@ -1736,12 +1736,12 @@ async function compressPhoto(dataUrl){
     const img = new Image();
     img.onload = ()=>{
       const canvas = document.createElement('canvas');
-      const maxW = 600;
+      const maxW = 1200;
       let w = img.width, h = img.height;
       if(w > maxW){h = Math.round(h*maxW/w); w = maxW;}
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      resolve(canvas.toDataURL('image/jpeg', 0.5));
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
     };
     img.src = dataUrl;
   });
