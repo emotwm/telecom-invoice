@@ -1124,13 +1124,20 @@ function handleEditPhoto(inp){
 }
 async function saveEdit(){
   const newNo=document.getElementById('edit-no').value.trim();
-  if(!newNo){alert('單號不能為空');return;}
+  if(!newNo){
+    document.getElementById('smsg').style.color='#c00';
+    document.getElementById('smsg').textContent='單號不能為空';
+    return;
+  }
   const newRemark=document.getElementById('edit-remark').value.trim();
   const newItems=editItems.filter(it=>it.name&&it.name.trim()).map(it=>({...it,m:true}));
   const updateData={no:newNo,remark:newRemark,items:newItems};
   if(editPhoto)updateData.photo=editPhoto;
-  if(window._fbReady && window.updateFirebase && typeof editId==='string'){
-    await window.updateFirebase(editId,updateData);
+
+  closeEdit();
+
+  if(window._fbReady && window.updateFirebase && editId){
+    await window.updateFirebase(String(editId),updateData);
     let refreshCount=0;
     const t=setInterval(()=>{
       refreshCount++;
@@ -1138,11 +1145,10 @@ async function saveEdit(){
       if(refreshCount>=6) clearInterval(t);
     },500);
   } else {
-    const r=recs.find(r=>r.id===editId);
+    const r=recs.find(r=>String(r.id)===String(editId)||r.fbId===String(editId));
     if(r)Object.assign(r,updateData);
     renderHist();
   }
-  closeEdit();
 }
 function closeEdit(){document.getElementById('edit-modal').classList.remove('open');editId=null;editPhoto=null;}
 
