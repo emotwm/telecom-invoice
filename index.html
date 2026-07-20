@@ -783,8 +783,10 @@ function closeBatchDel(){
   document.getElementById('batch-del-modal').classList.remove('open');
 }
 function fill(u,p){document.getElementById('lu').value=u;document.getElementById('lp').value=p;document.getElementById('lerr').textContent='';}
-function normDate(s){return s?s.replace(/\//g,'-'):'';}
-
+function formatDate(d){
+  const dt=d||new Date();
+  return `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()}`;
+}
 // ===== 登入 =====
 function renderLoginHints(){
   const el=document.getElementById('store-login-hints');if(!el)return;
@@ -809,7 +811,7 @@ function doLogin(){
 
 function doAfterLogin(){
   if(cu.role==='admin'){
-    document.getElementById('adate').textContent=new Date().toLocaleDateString('zh-TW')+' 截止 16:00';
+    document.getElementById('adate').textContent=formatDate(new Date())+' 截止 16:00';
     showScreen('s-admin');
     if(window._fbReady && window.recs){renderAdmin();}
     else{let t=0;const w=setInterval(()=>{t++;if(window.recs||t>6){clearInterval(w);renderAdmin();}},500);}
@@ -978,7 +980,7 @@ function doSend(){
       id:nid++,store:cu.store,vk,vendor:cfg.label,vGroup:cfg.vGroup,noLabel:cfg.noLabel,
       no:fno,items,remark,
       time:new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
-      date:new Date().toLocaleDateString('zh-TW'),
+      date:formatDate(new Date()),
       status:isDup?'重複單':'待覆核',photo,dup:isDup,ocrP:false
     });
     msg.style.color='#27500A';msg.textContent='✓ 已送出，等待總部覆核';
@@ -996,15 +998,21 @@ function renderHist(){
   const data=(window._fbReady && window.recs) ? window.recs : recs;
   const histDate=document.getElementById('hist-date');
   const filterDate=histDate?histDate.value:'';
-  const today=new Date().toLocaleDateString('zh-TW');
+  const today=formatDate(new Date());
   let my=data.filter(r=>r.store===cu.store);
+
+  function normD(d){
+    if(!d)return '';
+    const clean=String(d).replace(/年/,'/').replace(/月/,'/').replace(/日/,'').replace(/-/g,'/');
+    const parts=clean.split('/');
+    if(parts.length===3) return `${parts[0]}/${parseInt(parts[1])}/${parseInt(parts[2])}`;
+    return d;
+  }
+
   if(filterDate){
-    // 依選擇日期篩選
-    const fd=filterDate.replace(/-/g,'/');
-    my=my.filter(r=>r.date===fd);
+    my=my.filter(r=>normD(r.date)===normD(filterDate));
   } else {
-    // 預設顯示今日
-    my=my.filter(r=>r.date===today);
+    my=my.filter(r=>normD(r.date)===normD(today));
   }
   if(!my.length){
     el.innerHTML=`<div style="text-align:center;color:#888;font-size:13px;padding:16px">${filterDate?'該日期':'今日'}尚無上傳記錄</div>`;
@@ -1269,7 +1277,7 @@ function markDone(id){
   } else {
     r.status='已入庫';r.dup=false;
     r.doneTime=now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
-    r.doneDate=now.toLocaleDateString('zh-TW');
+    r.doneDate=formatDate(now);
     renderAdmin();
   }
 }
@@ -1725,7 +1733,7 @@ window.doSendFirebase = async function(vk, cfg, manNo, remark, photo, manualItem
       vk, vendor: cfg.label, vGroup: cfg.vGroup, noLabel: cfg.noLabel,
       no: fno, items, remark,
       time: now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
-      date: now.toLocaleDateString('zh-TW'),
+      date: formatDate(now),
       status: isDup?'重複單':'待覆核',
       photo: photoData,
       dup: isDup, ocrP: false,
@@ -1749,7 +1757,7 @@ window.markDoneFirebase = async function(fbId){
   await updateDoc(doc(db,'invoices',fbId),{
     status:'已入庫',
     doneTime: now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
-    doneDate: now.toLocaleDateString('zh-TW')
+    doneDate: formatDate(now)
   });
 };
 
