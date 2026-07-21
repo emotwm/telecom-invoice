@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>進貨單管理系統</title>
+<link rel="manifest" href="/telecom-invoice/manifest.json">
+<meta name="theme-color" content="#0C447C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="倚盟進貨單">
+<link rel="apple-touch-icon" href="/telecom-invoice/icon.png">
+<link rel="icon" href="/telecom-invoice/icon.png">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 body{background:#f5f5f7;color:#1d1d1f;font-size:14px;min-height:100vh}
@@ -934,6 +941,8 @@ function doAfterLogin(){
     if(window._fbReady && window.recs){renderHist();}
     else{let t=0;const w=setInterval(()=>{t++;if(window.recs||t>6){clearInterval(w);renderHist();}},500);}
   }
+  // 登入後索取通知權限並登記手機
+  if(window.registerPush) setTimeout(()=>window.registerPush(), 400);
 }
 
 document.getElementById('login-btn').addEventListener('click',doLogin);
@@ -1781,7 +1790,8 @@ try{
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, where } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCAPljha2I7qqFU49GV2UJC2F64HoKRqnc",
@@ -1794,6 +1804,52 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const messaging = getMessaging(app);
+
+// ===== 推播設定 =====
+const VAPID_KEY = "BAkPwW4LgB7f0CFmOr2HX2IOCuI89772gDpniRFBKZNcgXuY5-0CozJg7OC5ux7EhCmYadQY9ZrU8XyIZ_0Hh2E";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOfnIJOxzCE5SlfZYIpK614PUNntIVrucRS2qAx3pz_O08ptpzUGskgGun-lJcTRB2/exec";
+const SW_PATH = "/telecom-invoice/firebase-messaging-sw.js";
+const SW_SCOPE = "/telecom-invoice/";
+
+// 登入後：索取通知權限、登記這支手機
+window.registerPush = async function(){
+  try{
+    if(!('serviceWorker' in navigator) || !('Notification' in window) || typeof cu==='undefined' || !cu) return;
+    if(location.protocol!=='https:') return; // 推播需要 https
+    const swReg = await navigator.serviceWorker.register(SW_PATH, {scope: SW_SCOPE});
+    let perm = Notification.permission;
+    if(perm==='default') perm = await Notification.requestPermission();
+    if(perm!=='granted'){ console.log('使用者未允許通知'); return; }
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+    if(!token) return;
+    const owner = (cu.role==='admin') ? 'admin' : cu.store;
+    const snap = await getDocs(query(collection(db,'pushTokens'), where('token','==',token)));
+    if(snap.empty){
+      await addDoc(collection(db,'pushTokens'), { owner, token, ua: navigator.userAgent, updatedAt: serverTimestamp() });
+    } else {
+      await updateDoc(doc(db,'pushTokens', snap.docs[0].id), { owner, updatedAt: serverTimestamp() });
+    }
+    console.log('推播已註冊：'+owner);
+  }catch(e){ console.warn('registerPush 失敗:', e); }
+};
+
+// 發送通知：找出目標對象的所有手機，交給 Apps Script 代發員
+async function sendPush(targetOwner, title, body){
+  try{
+    if(!targetOwner) return;
+    const snap = await getDocs(query(collection(db,'pushTokens'), where('owner','==',targetOwner)));
+    const tokens = snap.docs.map(d=>d.data().token).filter(Boolean);
+    if(!tokens.length){ console.log('目標無登記手機:'+targetOwner); return; }
+    await fetch(APPS_SCRIPT_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ tokens, title, body })
+    });
+    console.log('已送出通知給:'+targetOwner);
+  }catch(e){ console.warn('sendPush 失敗:', e); }
+}
+window._sendPush = sendPush;
 
 window._db = db;
 window._fbReady = true;
@@ -1872,6 +1928,8 @@ window.doSendFirebase = async function(vk, cfg, manNo, remark, photo, manualItem
       createdAt: serverTimestamp()
     });
     msg.style.color='#27500A'; msg.textContent='✓ 已送出，等待總部覆核';
+    // 通知總部有新單待覆核
+    if(cu.role==='store'){ sendPush('admin', '🔔 新進貨單待覆核', `${cu.store}上傳了「${cfg.label}」單據（${fno}）`); }
     setTimeout(()=>{msg.textContent='';},3000);
     // 強制重新渲染歷史記錄
     setTimeout(()=>{ if(window.recs) renderHist(); }, 1500);
@@ -1891,6 +1949,11 @@ window.markDoneFirebase = async function(fbId){
     doneTime: now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
     doneDate: formatDate(now)
   });
+  // 通知該門市：單據已入庫
+  try{
+    const rec=(window.recs||[]).find(r=>r.fbId===fbId);
+    if(rec && rec.store){ sendPush(rec.store, '✅ 單據已入庫', `${rec.vendor||''} 單號 ${rec.no} 已入庫`); }
+  }catch(e){}
 };
 
 // 刪除
