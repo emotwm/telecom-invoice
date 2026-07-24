@@ -155,6 +155,27 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
   table{page-break-inside:auto} tr{page-break-inside:avoid}
   @page{size:A4 portrait;margin:14mm}
 }
+@media (min-width:980px){
+  .wrap{max-width:1240px;padding:18px}
+  .brand,#storeSel{font-size:16px}
+  .tabs button{font-size:15px;padding:12px}
+  #q{font-size:18px;padding:15px}
+  #qList{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:start}
+  .hit{margin-bottom:0}
+  .hit-n{font-size:15px}
+  .tools button{flex:0 0 auto;padding:9px 16px}
+  .rep{padding:28px 32px}
+  .rep h1{font-size:23px}
+  .rep table{font-size:13px}
+  .rep th,.rep td{padding:7px 10px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(124px,1fr))}
+  .kpi b{font-size:24px}
+  thead th{position:sticky;top:0;z-index:2}
+  .c-code{display:inline;margin-left:10px}
+  #video{max-height:52vh}
+  .stats{gap:20px;font-size:13px}
+}
+@media (min-width:1400px){ #qList{grid-template-columns:1fr 1fr 1fr} }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -180,6 +201,12 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
     </div>
   </div>
 
+  <div id="backupTip" style="display:none;background:var(--extra-bg);border:1px solid var(--extra);color:var(--extra);border-radius:9px;padding:10px 12px;margin-bottom:9px;font-size:13px;line-height:1.6">
+    <span id="backupTipText"></span>
+    <button onclick="shareProgress()" style="margin-left:8px;border:1px solid var(--extra);background:#fff;color:var(--extra);border-radius:6px;padding:5px 12px;font-weight:700">立刻傳出</button>
+    <button onclick="hideTip()" style="margin-left:4px;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:6px;padding:5px 10px">稍後</button>
+  </div>
+
   <div class="tabs">
     <button class="on" onclick="tab('Search',this)">搜尋盤點</button>
     <button onclick="tab('Scan',this)">相機掃描</button>
@@ -199,7 +226,7 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
   <!-- 搜尋盤點 -->
   <div class="pane on" id="pSearch">
     <input id="q" placeholder="打關鍵字,例如 17PM hoda 白" autocomplete="off" autocapitalize="off" oninput="qRender()">
-    <div class="qhint">空格分隔多個關鍵字,全部符合才顯示。點「+」就加一件。</div>
+    <div class="qhint">空格分隔多個關鍵字,全部符合才顯示。點「＋」加一件;縮到只剩一個結果時,按 Enter 也能直接加(接有線條碼槍時同樣有效)。</div>
     <div id="qList"></div>
   </div>
 
@@ -253,12 +280,14 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
 
   <div class="tools">
     <button onclick="undo()">復原上一筆</button>
+    <button class="go" onclick="shareProgress()">傳出進度備份</button>
     <button onclick="saveProgress()">下載進度檔</button>
     <button onclick="pick('prog')">載入進度</button>
     <button onclick="exportAlias()">備份條碼表</button>
     <button onclick="pick('alias')">還原條碼表</button>
     <button class="go" onclick="pick('raw')">載入當天庫存檔</button>
     <button onclick="pick('list')">載入 CSV 清單</button>
+    <button onclick="showDropped()">檢視排除品項</button>
     <button class="warn" onclick="resetAll()">清空本店</button>
   </div>
 
@@ -298,6 +327,16 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
   </div>
 </div>
 
+<div class="bind" id="dropWin">
+  <div class="bind-in">
+    <h3 style="color:var(--accent)">被排除的品項</h3>
+    <p style="font-size:13px;margin:0 0 10px">依 SOP 自動排除。如果哪一項其實要盤,按「加回」就會放進清單。</p>
+    <div id="dropList" style="max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:8px"></div>
+    <button onclick="document.getElementById('dropWin').classList.remove('show')"
+      style="width:100%;margin-top:10px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff">關閉</button>
+  </div>
+</div>
+
 <input type="file" id="filePick" accept=".xls,.xlsx,.csv,.json,.txt" style="display:none">
 
 <script>
@@ -332,7 +371,7 @@ const isUniq = c => /唯一|展示機/.test(c);
 const S = () => db.stores[cur];
 function allItems(){
   const s = S(); if(!s) return [];
-  return s.items.concat((s.extra||[]).map(e=>({c:'清單外', id:e.id, n:e.n, q:0, extra:true})));
+  return s.items.concat((s.extra||[]).map(e=>({c:'清單外', id:e.id, n:e.n, q:0, cost:0, extra:true})));
 }
 function got(id){ const v = S().counts[id]; return v === undefined ? null : v; }
 function state(r){
@@ -358,6 +397,7 @@ function bump(id, n){
   const st = state(r);
   flash(r, st, n);
   buzz(st==='extra' ? 'extra' : (got(id) > r.q ? 'over' : 'ok'));
+  checkBackup();
   refresh();
 }
 function setQty(id, v){
@@ -385,6 +425,31 @@ function scan(raw){
   if(!r){ openBind(code); return; }
   bump(r.id, step());
 }
+document.getElementById('q').addEventListener('keydown', e=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  if(!hasData()){ msg('請先載入當天的庫存檔'); return; }
+  const raw = e.target.value.trim();
+  if(!raw) return;
+  const code = norm(raw);
+  // 先當成編號 / 條碼
+  let r = allItems().find(x=>norm(x.id)===code);
+  if(!r && db.alias[code]) r = allItems().find(x=>x.id===db.alias[code]);
+  if(r){ bump(r.id, step()); e.target.value=''; qRender(); return; }
+  // 再看關鍵字是否只剩一個結果
+  const toks = raw.toUpperCase().split(/\s+/).filter(Boolean);
+  const hits = allItems().filter(x=>{
+    const hay=(x.n+' '+x.id+' '+x.c).toUpperCase();
+    return toks.every(t=>hay.includes(t));
+  });
+  if(hits.length===1){ bump(hits[0].id, step()); e.target.value=''; qRender(); return; }
+  if(hits.length===0){
+    if(/^[0-9]{8,}$/.test(code)){ openBind(code); e.target.value=''; return; }
+    msg('找不到符合的商品');
+    return;
+  }
+  msg(`有 ${hits.length} 個符合,再多打幾個字或直接點＋`);
+});
 document.getElementById('code').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); scan(e.target.value); e.target.value=''; }
 });
@@ -440,7 +505,7 @@ function qRender(){
     const st = state(r), a = got(r.id);
     return `<div class="hit r-${st==='wait'?'':st}">
       <div class="hit-main">
-        <div class="hit-n">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}</div>
+        <div class="hit-n">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}${r.q<0?' <span class="uniq" style="border-color:var(--bad);color:var(--bad)">負庫存</span>':''}</div>
         <div class="hit-s">${esc(r.id)} · ${esc(r.c)}</div>
       </div>
       <div class="hit-q">${a===null?'—':a}<em> / ${r.q}</em></div>
@@ -472,7 +537,7 @@ function render(){
   document.getElementById('tb').innerHTML = rows.map(r=>{
     const st=state(r), a=got(r.id), d = a===null?'':(a-r.q);
     return `<tr class="r-${st==='wait'?'':st}">
-      <td class="c-name">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}
+      <td class="c-name">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}${r.q<0?' <span class="uniq" style="border-color:var(--bad);color:var(--bad)">負庫存</span>':''}
         <span class="c-code">${esc(r.id)} · ${esc(r.c)}</span></td>
       <td class="c-num">${r.q}</td>
       <td class="c-num"><input class="act" type="number" inputmode="numeric" value="${a===null?'':a}"
@@ -492,7 +557,13 @@ function calc(){
     const a=got(r.id);
     if(a!==null){ const d=a-r.q; if(d>0)plus+=d; if(d<0)minus+=-d; }
   });
-  return {rows, ok, bad, wait, extra, plus, minus, base:S().items.length};
+  let plusV=0, minusV=0;
+  rows.forEach(r=>{
+    const a=got(r.id); if(a===null) return;
+    const d=a-r.q, c=r.cost||0;
+    if(d>0) plusV += d*c; if(d<0) minusV += -d*c;
+  });
+  return {rows, ok, bad, wait, extra, plus, minus, plusV, minusV, base:S().items.length};
 }
 function stats(){
   if(!hasData()) return;
@@ -519,10 +590,11 @@ function report(){
     if(a===null) o.w++; else { o.a+=a; if(a!==r.q) o.d++; }
   });
   const row = r => {
-    const a=got(r.id), d=a-r.q;
+    const a=got(r.id), d=a-r.q, amt=Math.round(d*(r.cost||0));
     return `<tr><td>${esc(r.c)}</td><td style="font-family:var(--mono);font-size:11px">${esc(r.id)}</td>
       <td>${esc(r.n)}</td><td class="c-num">${r.q}</td><td class="c-num">${a===null?'':a}</td>
-      <td class="c-num" style="color:${d>0?'var(--extra)':'var(--bad)'};font-weight:700">${d>0?'+'+d:d}</td></tr>`;
+      <td class="c-num" style="color:${d>0?'var(--extra)':'var(--bad)'};font-weight:700">${d>0?'+'+d:d}</td>
+      <td class="c-num" style="color:${amt>0?'var(--extra)':'var(--bad)'}">${amt.toLocaleString()}</td></tr>`;
   };
   const done = c.ok + c.bad, pct = c.base ? Math.round(done/c.base*100) : 0;
   document.getElementById('repBody').innerHTML = `
@@ -538,8 +610,14 @@ function report(){
       <div class="kpi k-bad"><span>有差異</span><b>${c.bad}</b></div>
       <div class="kpi"><span>未盤到</span><b>${c.wait}</b></div>
       <div class="kpi k-extra"><span>清單外</span><b>${c.extra}</b></div>
+      <div class="kpi k-bad"><span>負庫存</span><b>${c.rows.filter(r=>r.q<0).length}</b></div>
       <div class="kpi k-extra"><span>盤盈件數</span><b>+${c.plus}</b></div>
       <div class="kpi k-bad"><span>盤虧件數</span><b>-${c.minus}</b></div>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <div class="kpi k-extra"><span>盤盈金額</span><b>${Math.round(c.plusV).toLocaleString()}</b></div>
+      <div class="kpi k-bad"><span>盤虧金額</span><b>${Math.round(c.minusV).toLocaleString()}</b></div>
+      <div class="kpi"><span>淨差異金額</span><b>${(Math.round(c.plusV-c.minusV)).toLocaleString()}</b></div>
     </div>
     <div class="note">盤盈 = 實際多於電腦庫存;盤虧 = 實際少於電腦庫存。未盤到的品項不列入盈虧計算。</div>
 
@@ -554,8 +632,22 @@ function report(){
 
     <h2>差異明細（${diff.length} 項）</h2>
     ${diff.length ? `<table><thead><tr><th>大類</th><th>商品編號</th><th>商品名稱</th>
-      <th class="c-num">電腦</th><th class="c-num">實際</th><th class="c-num">差異</th></tr></thead>
+      <th class="c-num">電腦</th><th class="c-num">實際</th><th class="c-num">差異</th><th class="c-num">差異金額</th></tr></thead>
       <tbody>${diff.map(row).join('')}</tbody></table>` : '<div class="note">沒有差異,全部相符。</div>'}
+
+    ${(function(){
+      const neg = c.rows.filter(r=>r.q < 0);
+      if(!neg.length) return '';
+      return `<h2 style="border-bottom-color:var(--bad);color:var(--bad)">負庫存異常（${neg.length} 項）</h2>
+      <table><thead><tr><th>大類</th><th>商品編號</th><th>商品名稱</th>
+        <th class="c-num">電腦庫存</th><th class="c-num">實際</th><th class="c-num">成本</th></tr></thead><tbody>
+        ${neg.map(r=>{const a=got(r.id);
+          return `<tr><td>${esc(r.c)}</td><td style="font-family:var(--mono);font-size:11px">${esc(r.id)}</td>
+          <td>${esc(r.n)}</td><td class="c-num" style="color:var(--bad);font-weight:700">${r.q}</td>
+          <td class="c-num">${a===null?'未盤':a}</td><td class="c-num">${Math.round(r.cost||0).toLocaleString()}</td></tr>`;}).join('')}
+      </tbody></table>
+      <div class="note">電腦庫存為負數代表系統帳目本身有問題（多半是出貨未進貨、或退貨重複扣帳），不是盤點造成的。這幾項要回系統查明沖銷原因。</div>`;
+    })()}
 
     <h2>未盤到（${wait.length} 項）</h2>
     ${wait.length ? `<table><thead><tr><th>大類</th><th>商品編號</th><th>商品名稱</th><th class="c-num">電腦庫存</th></tr></thead>
@@ -739,11 +831,12 @@ function dl(name, text, type){
 const stamp = () => new Date().toISOString().slice(0,10).replace(/-/g,'');
 const cell = v => `"${String(v).replace(/"/g,'""')}"`;
 function toCSV(rows){
-  const head=['倉庫名稱','大類','商品編號','商品名稱','電腦庫存','實際庫存','差異','狀態'];
+  const head=['倉庫名稱','大類','商品編號','商品名稱','成本','電腦庫存','實際庫存','差異','差異金額','狀態'];
   const nm={ok:'相符',bad:'差異',wait:'未盤到',extra:'清單外'};
   return [head.map(cell).join(',')].concat(rows.map(r=>{
     const a=got(r.id);
-    return [cur,r.c,r.id,r.n,r.q, a===null?'':a, a===null?'':(a-r.q), nm[state(r)]].map(cell).join(',');
+    const d = a===null?'':(a-r.q);
+    return [cur,r.c,r.id,r.n,r.cost||0,r.q, a===null?'':a, d, d===''?'':Math.round(d*(r.cost||0)), nm[state(r)]].map(cell).join(',');
   })).join('\r\n');
 }
 function exportAll(){ if(!hasData()) return; dl(`盤點結果_${cur}_${stamp()}.csv`, toCSV(allItems())); }
@@ -754,6 +847,48 @@ function exportDiff(){
   dl(`盤點差異_${cur}_${stamp()}.csv`, toCSV(rows));
 }
 function saveProgress(){ if(!hasData()) return; dl(`盤點進度_${stamp()}.json`, JSON.stringify({db,cur}), 'application/json'); }
+let sinceBackup = 0;
+async function shareProgress(){
+  if(!hasData()) return;
+  const name = `盤點進度_${cur}_${stamp()}.json`;
+  const text = JSON.stringify({db, cur});
+  try{
+    const f = new File([text], name, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[f]})){
+      await navigator.share({files:[f], title:'盤點進度備份'});
+      sinceBackup = 0; hideTip(); msg('進度已傳出'); return;
+    }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  dl(name, text, 'application/json');
+  sinceBackup = 0; hideTip(); msg('進度檔已下載');
+}
+function hideTip(){ document.getElementById('backupTip').style.display='none'; }
+function checkBackup(){
+  sinceBackup++;
+  if(sinceBackup >= 50){
+    document.getElementById('backupTipText').textContent =
+      `已經盤了 ${sinceBackup} 筆還沒備份。建議傳一份到 LINE,萬一裝置出狀況才接得回來。`;
+    document.getElementById('backupTip').style.display='block';
+  }
+}
+function showDropped(){
+  if(!hasData()) return;
+  const d = S().dropped || [];
+  document.getElementById('dropList').innerHTML = d.length ? d.map((r,i)=>
+    `<div style="padding:9px 10px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center">
+      <div style="flex:1;min-width:0"><div style="font-size:13px">${esc(r.n)}</div>
+        <div class="bl-code">${esc(r.id)} · ${esc(r.c)} · 電腦 ${r.q} · ${esc(r.why||'')}</div></div>
+      <button onclick="restoreDrop(${i})" style="border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:7px;padding:7px 12px">加回</button>
+    </div>`).join('') : '<div style="padding:16px;color:var(--muted)">沒有被排除的品項</div>';
+  document.getElementById('dropWin').classList.add('show');
+}
+function restoreDrop(i){
+  const st = S(), r = st.dropped[i];
+  if(!r) return;
+  if(!st.items.some(x=>x.id===r.id)) st.items.push({c:r.c, id:r.id, n:r.n, q:r.q, cost:r.cost||0});
+  st.dropped.splice(i,1);
+  fillStores(); refresh(); showDropped(); msg('已加回:' + r.n);
+}
 function exportAlias(){
   const n = Object.keys(db.alias).length;
   if(!n){ msg('條碼對照表還是空的,掃過幾筆之後再備份'); return; }
@@ -779,8 +914,13 @@ const ALIASES = {
   c:['大類','類別','商品大類','品類','分類'],
   id:['商品編號','品號','商品代號','貨號','料號','商品碼'],
   n:['商品名稱','品名','商品','名稱'],
-  q:['電腦庫存','庫存','庫存量','現有庫存','帳面庫存','結存數量','數量']
+  q:['電腦庫存','庫存','庫存量','現有庫存','帳面庫存','結存數量','數量'],
+  cost:['成本','平均成本','單價','進價']
 };
+const EXCLUDE_CATS = ['上線條碼','數位電視棒','專案手機補貼','飾品類','預付卡(唯一)','遊戲類',
+ '預付卡儲值','寬頻','專案條碼','手機成本補貼','數位相機','無線網卡','原廠閃光燈','無線電話',
+ '馬克電腦維修','原廠手寫筆','電容筆','Catch99(6)','電視','預付卡類','店內維修','平板電腦',
+ '序號行動電話','信用卡','補充卡類','續約類','衛星導航系統','儲值類','SIM卡類','筆記型電腦','DV攝影機'];
 let rawAOA=null, rawHead=null, rawStart=0;
 
 async function openRaw(file){
@@ -805,7 +945,7 @@ async function openRaw(file){
 }
 function showMap(fname, n){
   document.getElementById('mapInfo').textContent = `${fname} — 讀到 ${n} 列資料。請確認欄位對應:`;
-  const need = [['id','商品編號'],['n','商品名稱'],['q','電腦庫存'],['c','大類'],['w','倉庫名稱']];
+  const need = [['id','商品編號'],['n','商品名稱'],['q','電腦庫存'],['c','大類'],['w','倉庫名稱'],['cost','成本']];
   document.getElementById('mapFields').innerHTML = need.map(([k,label])=>{
     const guess = rawHead.findIndex(h => ALIASES[k].includes(h));
     return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
@@ -823,7 +963,7 @@ function closeMap(){ document.getElementById('mapWin').classList.remove('show');
 
 function applyMap(){
   const gi = k => parseInt(document.getElementById('map_'+k).value);
-  const I = {w:gi('w'), c:gi('c'), id:gi('id'), n:gi('n'), q:gi('q')};
+  const I = {w:gi('w'), c:gi('c'), id:gi('id'), n:gi('n'), q:gi('q'), cost:gi('cost')};
   if(I.id < 0 || I.n < 0){ alert('商品編號和商品名稱是必要欄位'); return; }
   let rows = [];
   for(let i=rawStart;i<rawAOA.length;i++){
@@ -835,20 +975,35 @@ function applyMap(){
       w: I.w<0?'':String(r[I.w]||'').trim(),
       c: I.c<0?'未分類':String(r[I.c]||'').trim(),
       id, n,
-      q: I.q<0?0:(parseInt(String(r[I.q]).replace(/[, ]/g,''))||0)
+      q: I.q<0?0:(parseInt(String(r[I.q]).replace(/[, ]/g,''))||0),
+      cost: I.cost<0?0:(parseFloat(String(r[I.cost]).replace(/[, ]/g,''))||0)
     });
   }
   const report = {start: rows.length, sub:0, gift:0, merge:0};
+  let dropped = [];
   if(document.getElementById('mapSOP').checked){
-    // 1 排除專案手機補貼
-    let a = rows.filter(r=>!/專案手機補貼/.test(r.c) && !/專案手機補貼/.test(r.n));
+    // 1 排除不需盤點的大類
+    let a = rows.filter(r=>{
+      const out = EXCLUDE_CATS.includes(r.c.trim());
+      if(out) dropped.push(Object.assign({why:'大類不盤:'+r.c}, r));
+      return !out;
+    });
     report.sub = rows.length - a.length; rows = a;
     // 2 贈品類只留 kinyo / 倚盟
     a = rows.filter(r=>{
       if(!/贈品/.test(r.c)) return true;
-      return /^\s*(kinyo|倚盟)/i.test(r.n);
+      const keep = /^\s*(kinyo|倚盟)/i.test(r.n);
+      if(!keep) dropped.push(Object.assign({why:'贈品非 kinyo/倚盟'}, r));
+      return keep;
     });
     report.gift = rows.length - a.length; rows = a;
+    // 2b 非實體庫存的品項(會員費之類)
+    a = rows.filter(r=>{
+      const out = /會員費/.test(r.n);
+      if(out) dropped.push(Object.assign({why:'非實體庫存'}, r));
+      return !out;
+    });
+    report.item = rows.length - a.length; rows = a;
     // 3 合併 (A)- 同名品項
     const base = s => s.replace(/^[（(]\s*A\s*[）)]\s*[-－]?\s*/,'').trim();
     const g = {};
@@ -858,7 +1013,7 @@ function applyMap(){
       const arr = g[b];
       if(arr.length === 1){ out.push(arr[0]); return; }
       const plain = arr.find(r => base(r.n) === r.n.trim()) || arr[0];
-      const merged = {w:plain.w, c:plain.c, id:plain.id, n:plain.n,
+      const merged = {w:plain.w, c:plain.c, id:plain.id, n:plain.n, cost:plain.cost,
                       q: arr.reduce((s2,r)=>s2+r.q,0),
                       also: arr.filter(r=>r.id!==plain.id).map(r=>r.id)};
       out.push(merged); report.merge++;
@@ -870,14 +1025,15 @@ function applyMap(){
   rows.forEach(r=>{ const w = r.w || '本店'; (byStore[w] = byStore[w] || []).push(r); });
   const names = Object.keys(byStore);
   names.forEach(w=>{
-    addStore(w, byStore[w].map(r=>({c:r.c, id:r.id, n:r.n, q:r.q})));
+    addStore(w, byStore[w].map(r=>({c:r.c, id:r.id, n:r.n, q:r.q, cost:r.cost||0})));
+    db.stores[w].dropped = dropped.filter(r=>(r.w||'本店')===w);
     byStore[w].forEach(r=>{ if(r.also) r.also.forEach(x=>{ db.alias[norm(x)] = r.id; }); });
   });
   cur = names[0];
   closeMap(); fillStores(); refresh();
   msg(`已建立 ${names.join('、')}:${rows.length} 品項` +
-      (report.sub||report.gift||report.merge
-        ? `（排除補貼 ${report.sub}、贈品濾除 ${report.gift}、合併 ${report.merge} 組）` : ''));
+      (report.sub||report.gift||report.merge||report.item
+        ? `（大類排除 ${report.sub}、贈品濾除 ${report.gift}、非實體 ${report.item||0}、合併 ${report.merge} 組）` : ''));
 }
 document.getElementById('filePick').addEventListener('change', function(){
   const f=this.files[0]; if(!f) return;
