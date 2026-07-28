@@ -1115,6 +1115,13 @@ function applyMap(){
       return !out;
     });
     report.item = rows.length - a.length; rows = a;
+    // 2c 純標籤耗材:品名以「X標條碼」結尾(後面沒接品名)
+    a = rows.filter(r=>{
+      const out = /標條碼\s*$/.test(r.n.trim());
+      if(out) dropped.push(Object.assign({why:'純標籤耗材'}, r));
+      return !out;
+    });
+    report.label = rows.length - a.length; rows = a;
     // 3 合併 (A)- 同名品項
     const base = s => s.replace(/^[（(]\s*A\s*[）)]\s*[-－]?\s*/,'').trim();
     const g = {};
@@ -1143,8 +1150,8 @@ function applyMap(){
   cur = names[0];
   closeMap(); fillStores(); refresh();
   msg(`已建立 ${names.join('、')}:${rows.length} 品項` +
-      (report.sub||report.gift||report.merge||report.item
-        ? `（大類排除 ${report.sub}、贈品濾除 ${report.gift}、非實體 ${report.item||0}、合併 ${report.merge} 組）` : ''));
+      (report.sub||report.gift||report.merge||report.item||report.label
+        ? `（大類排除 ${report.sub}、贈品濾除 ${report.gift}、非實體 ${report.item||0}、標籤 ${report.label||0}、合併 ${report.merge} 組）` : ''));
 }
 document.getElementById('filePick').addEventListener('change', function(){
   const f=this.files[0]; if(!f) return;
