@@ -539,9 +539,16 @@ document.getElementById('q').addEventListener('keydown', e=>{
   if(!hasData()){ msg('請先載入當天的庫存檔'); return; }
   const raw = e.target.value.trim();
   if(!raw) return;
+  // 先試「完全符合的商品編號」,含被合併掉的舊編號
+  const code = norm(raw);
+  let exact = allItems().find(x=>norm(x.id)===code
+              || (x.also && x.also.some(y=>norm(y)===code)));
+  if(!exact && db.alias[code]) exact = allItems().find(x=>x.id===db.alias[code]);
+  if(exact){ bump(exact.id, step()); e.target.value=''; qRender(); return; }
+
   const toks = raw.toUpperCase().split(/\s+/).filter(Boolean);
   const hits = allItems().filter(x=>{
-    const hay=(x.n+' '+x.id+' '+x.c).toUpperCase();
+    const hay=(x.n+' '+x.id+' '+(x.also?x.also.join(' '):'')+' '+x.c).toUpperCase();
     return toks.every(t=>hay.includes(t));
   });
   // 搜尋框只做「找商品」,永遠不會跳出條碼綁定視窗
@@ -615,7 +622,7 @@ function qRender(){
   if(!raw){ box.innerHTML = '<div class="qhint">開始打字就會出現符合的商品。</div>'; return; }
   const toks = raw.split(/\s+/).filter(Boolean);
   const hits = allItems().filter(r=>{
-    const hay = (r.n + ' ' + r.id + ' ' + r.c).toUpperCase();
+    const hay = (r.n + ' ' + r.id + ' ' + (r.also?r.also.join(' '):'') + ' ' + r.c).toUpperCase();
     return toks.every(t => hay.includes(t));
   }).slice(0, 40);
   if(!hits.length){ box.innerHTML = '<div class="qhint">找不到符合的商品,換個關鍵字試試。</div>'; return; }
@@ -624,7 +631,7 @@ function qRender(){
     return `<div class="hit r-${st==='wait'?'':st}">
       <div class="hit-main">
         <div class="hit-n">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}${r.q<0?' <span class="uniq" style="border-color:var(--bad);color:var(--bad)">負庫存</span>':''}</div>
-        <div class="hit-s">${esc(r.id)} · ${esc(r.c)}</div>
+        <div class="hit-s">${esc(r.id)}${r.also&&r.also.length?' + '+esc(r.also.join(' + ')):''} · ${esc(r.c)}</div>
       </div>
       <div class="hit-q">${a===null?'—':a}<em> / ${r.q}</em></div>
       <button class="minus" onclick="bump('${r.id}',-1)">−</button>
@@ -649,14 +656,15 @@ function render(){
     if(filter==='bad' && st!=='bad' && st!=='extra') return false;
     if(filter==='ok' && st!=='ok') return false;
     if(cat && r.c!==cat) return false;
-    if(q && !r.n.toUpperCase().includes(q) && !r.id.toUpperCase().includes(q)) return false;
+    if(q && !r.n.toUpperCase().includes(q) && !r.id.toUpperCase().includes(q)
+       && !(r.also && r.also.some(y=>y.toUpperCase().includes(q)))) return false;
     return true;
   });
   document.getElementById('tb').innerHTML = rows.map(r=>{
     const st=state(r), a=got(r.id), d = a===null?'':(a-r.q);
     return `<tr id="row_${r.id}" class="r-${st==='wait'?'':st}">
       <td class="c-name">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}${r.q<0?' <span class="uniq" style="border-color:var(--bad);color:var(--bad)">負庫存</span>':''}
-        <span class="c-code">${esc(r.id)} · ${esc(r.c)}</span></td>
+        <span class="c-code">${esc(r.id)}${r.also&&r.also.length?' + '+esc(r.also.join(' + ')):''} · ${esc(r.c)}</span></td>
       <td class="c-num">${r.q}</td>
       <td class="c-num"><input class="act" type="number" inputmode="numeric" value="${a===null?'':a}"
           onchange="setQty('${r.id}', this.value)" onclick="this.select()"></td>
@@ -1334,7 +1342,7 @@ function applyMap(){
   rows.forEach(r=>{ const w = r.w || '本店'; (byStore[w] = byStore[w] || []).push(r); });
   const names = Object.keys(byStore);
   names.forEach(w=>{
-    addStore(w, byStore[w].map(r=>({c:r.c, id:r.id, n:r.n, q:r.q, cost:r.cost||0})));
+    addStore(w, byStore[w].map(r=>({c:r.c, id:r.id, n:r.n, q:r.q, cost:r.cost||0, also:r.also||null})));
     db.stores[w].dropped = dropped.filter(r=>(r.w||'本店')===w);
     byStore[w].forEach(r=>{ if(r.also) r.also.forEach(x=>{ db.alias[norm(x)] = r.id; }); });
   });
