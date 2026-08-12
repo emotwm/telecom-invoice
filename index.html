@@ -1077,21 +1077,38 @@ function doSend(){
   if(window._fbReady && window.doSendFirebase){
     if(!vk){msg.style.color='#c00';msg.textContent='請選擇廠商類型';return;}
     if(cfg.requirePhoto&&!photo){msg.style.color='#c00';msg.textContent='請先拍攝或選取單據照片';return;}
-    window.doSendFirebase(vk,cfg,manNo,remark,photo,[...manualItems]);
-    photo=null;manualItems=[];
-    document.getElementById('vsel').value='';
-    document.getElementById('no-inp').value='';
-    document.getElementById('dup-live-warn').style.display='none';
-    onVC();resetPhoto();
-    // 送出後定時檢查並更新記錄
-    let refreshCount=0;
-    const refreshTimer=setInterval(()=>{
-      refreshCount++;
-      if(window.recs) renderHist();
-      if(refreshCount>=6) clearInterval(refreshTimer);
-    },800);
+    const btn=document.getElementById('submit-btn');
+    if(btn){btn.disabled=true;btn.style.opacity='0.6';}
+    // 等雲端寫入「真的完成」才算成功；失敗則保留資料讓店長重送
+    window.doSendFirebase(vk,cfg,manNo,remark,photo,[...manualItems]).then((ok)=>{
+      if(ok){
+        photo=null;manualItems=[];
+        document.getElementById('vsel').value='';
+        document.getElementById('no-inp').value='';
+        document.getElementById('dup-live-warn').style.display='none';
+        onVC();resetPhoto();
+        let refreshCount=0;
+        const refreshTimer=setInterval(()=>{
+          refreshCount++;
+          if(window.recs) renderHist();
+          if(refreshCount>=6) clearInterval(refreshTimer);
+        },800);
+      }
+      // ok=false 時：不清空表單，錯誤訊息已由 doSendFirebase 顯示
+    }).catch((e)=>{
+      msg.style.color='#c00'; msg.textContent='⚠️ 上傳失敗，請確認網路後再按一次送出（資料已保留）';
+      console.error(e);
+    }).finally(()=>{
+      if(btn){btn.disabled=false;btn.style.opacity='1';}
+    });
     return;
   }
+
+  // 系統尚未連上雲端：不做本機假存，避免資料遺失
+  msg.style.color='#c00';
+  msg.textContent='系統連線中，請稍候幾秒再按送出';
+  return;
+  // eslint-disable-next-line no-unreachable
 
   msg.style.color='#0C447C';msg.textContent='送出中…';
   setTimeout(()=>{
@@ -1974,9 +1991,11 @@ window.doSendFirebase = async function(vk, cfg, manNo, remark, photo, manualItem
     // 強制重新渲染歷史記錄
     setTimeout(()=>{ if(window.recs) renderHist(); }, 1500);
     setTimeout(()=>{ if(window.recs) renderHist(); }, 3000);
+    return true;
   } catch(e){
-    msg.style.color='#c00'; msg.textContent='上傳失敗：'+e.message;
+    msg.style.color='#c00'; msg.textContent='⚠️ 上傳失敗，請確認網路後再按一次送出（資料已保留）';
     console.error(e);
+    return false;
   }
 };
 
