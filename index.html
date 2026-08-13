@@ -922,7 +922,7 @@ function doLogin(){
   if(acc&&pws[u]===p){
     cu={...acc,username:u};
     document.getElementById('lerr').textContent='';
-    try{sessionStorage.setItem('cu_u',u);sessionStorage.setItem('cu_p',p);}catch(e){}
+    try{localStorage.setItem('cu_u',u);localStorage.setItem('cu_p',p);}catch(e){}
     doAfterLogin();
   } else {
     document.getElementById('lerr').textContent='帳號或密碼錯誤';
@@ -950,7 +950,7 @@ document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')
 
 function logout(){
   cu=null;photo=null;manualItems=[];
-  try{sessionStorage.removeItem('cu_u');sessionStorage.removeItem('cu_p');}catch(e){}
+  try{localStorage.removeItem('cu_u');localStorage.removeItem('cu_p');}catch(e){}
   document.getElementById('lu').value='';document.getElementById('lp').value='';
   document.getElementById('vsel').value='';document.getElementById('smsg').textContent='';
   resetPhoto();onVC();showScreen('s-login');
@@ -1823,8 +1823,8 @@ renderLoginHints();
 
 // 自動恢復登入狀態
 try{
-  const su=sessionStorage.getItem('cu_u');
-  const sp=sessionStorage.getItem('cu_p');
+  const su=localStorage.getItem('cu_u');
+  const sp=localStorage.getItem('cu_p');
   if(su&&sp){
     const {accs,pws}=buildACCS();
     const acc=accs[su];
