@@ -1010,7 +1010,7 @@ function renderManual(){
   }
   el.innerHTML=manualItems.map((it,i)=>`
     <div class="irow">
-      <input type="text" value="${it.name}" placeholder="品名" style="flex:1" oninput="manualItems[${i}].name=this.value">
+      <input type="text" value="${it.name}" placeholder="${(cfg&&cfg.itemLabel==='卡號')?'卡號':'品名'}" style="flex:1" oninput="manualItems[${i}].name=this.value">
       <input type="text" value="${it.qty||''}" placeholder="數量" style="width:50px;text-align:center" oninput="manualItems[${i}].qty=this.value">
       ${manualItems.length>1||isOpt?`<button class="dbtn" onclick="manualItems.splice(${i},1);renderManual()">✕</button>`:'<div style="width:20px"></div>'}
     </div>`).join('');
