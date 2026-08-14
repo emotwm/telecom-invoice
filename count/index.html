@@ -147,33 +147,88 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
 
 #printArea{display:none}
 #recordArea{display:none}
-.rec-doc{font-family:var(--sans);color:#000}
-.rec-en{text-align:center;letter-spacing:.3em;font-size:12px;color:#333;margin-top:2px}
-.rec-title{text-align:center;font-size:20px;font-weight:700;letter-spacing:.25em;margin:2px 0 12px}
-.rec-head{width:100%;border-collapse:collapse;margin-bottom:6px}
-.rec-head td{padding:4px 6px;font-size:13px}
-.rec-head .k{width:130px;white-space:nowrap}
-.rec-head .v{border-bottom:1px solid #000}
-.rec-check{display:flex;gap:40px;font-size:13px;margin:8px 2px 10px}
-.rec-tbl{width:100%;border-collapse:collapse}
-.rec-tbl th,.rec-tbl td{border:1px solid #000;padding:5px 4px;font-size:12px;text-align:center;height:26px}
-.rec-tbl th{background:#eee;font-weight:700}
-.rec-tbl .rc-name{text-align:left}
-.rec-tbl .rc-reason{}
-.rec-note{border:1px solid #000;border-top:0;padding:6px 8px;font-size:12px;min-height:44px}
-.rec-noteline{margin-top:4px;min-height:20px}
-.rec-sign{width:100%;border-collapse:collapse;margin-top:14px}
-.rec-sign .k{width:180px;white-space:nowrap;font-size:13px;padding:6px}
-.rec-sign .v{border-bottom:1px solid #000}
+.rec-doc{font-family:var(--sans);color:#111}
+.rec-en{text-align:center;letter-spacing:.3em;font-size:13px;color:#1F3864;margin-top:2px}
+.rec-co{text-align:center;font-size:15px;font-weight:700;color:#1F3864;letter-spacing:.3em;margin-bottom:2px}
+.rec-title{text-align:center;font-size:24px;font-weight:700;letter-spacing:.2em;margin:2px 0 4px;color:#1F3864}
+.rec-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 26px;font-size:14px;color:#222;margin:8px 0 6px}
+.rec-meta b{font-weight:700}
+.rec-meta .fill{display:inline-block;min-width:74px;border-bottom:1px solid #666}
+.rec-rule{border:0;border-top:1px solid #555;margin:0 0 12px}
+.rec-warn{color:#A45B00;font-weight:700}
+.rec-kpi{table-layout:auto;margin-bottom:4px}
+.rec-kpi td{font-size:18px;height:46px}
+.rec-kpi td b{font-size:22px}
+.rec-cat{table-layout:auto}
+.rec-cat td{height:30px;font-size:14px}
+.rec-cat .rc-name{padding-left:12px}
+.rec-head{width:100%;border-collapse:collapse;margin-bottom:8px}
+.rec-head td{padding:6px;font-size:15px}
+.rec-head .k{width:140px;white-space:nowrap;color:#444}
+.rec-head .v{border-bottom:1px solid #999;font-weight:700}
+.rec-sec{font-size:16px;font-weight:700;color:#1F3864;margin:14px 0 6px;letter-spacing:.05em}
+.rec-hint{font-size:12px;font-weight:400;color:#6B7280;letter-spacing:0}
+.rec-check{display:flex;gap:40px;font-size:15px;margin:10px 2px 12px;font-weight:600}
+.rec-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+.rec-tbl th,.rec-tbl td{border:1px solid #C8CCD2;padding:9px 7px;font-size:15px;text-align:center;height:36px;
+                        word-break:break-word;overflow-wrap:anywhere}
+.rec-tbl thead th{background:#1F3864;color:#fff;font-weight:700;font-size:14.5px;border-color:#1F3864;letter-spacing:.04em}
+.rec-tbl .rc-name{text-align:left;line-height:1.3;font-weight:500}
+.rec-tbl .rc-code{display:block;font-family:var(--mono);font-size:12px;color:#6B7280;margin-top:3px;letter-spacing:.02em}
+.rec-tbl tbody tr:nth-child(even){background:#F7F8FA}
+.rec-tbl .rc-ms{white-space:nowrap;font-size:11px;letter-spacing:0}
+.rec-tbl .rc-ms b{font-size:14px}
+.rec-tbl .rc-minus{color:#C0281E;font-weight:700;white-space:nowrap}
+.rec-tbl .rc-plus{color:#0E7A4B;font-weight:700;white-space:nowrap}
+.rec-tbl tr.rc-total td{background:#1F3864;color:#fff;font-weight:700;border-color:#1F3864}
+.rec-tbl tr.rc-total .rc-minus,.rec-tbl tr.rc-total .rc-plus{color:#fff}
+.rec-tbl col.c-nm{width:45%}
+.rec-tbl col.c-q{width:7%}
+.rec-tbl col.c-ms{width:12%}
+.rec-tbl col.c-diff{width:16%}
+.rec-tbl col.c-dt{width:13%}
+.rec-tbl tr.rc-total .rc-code{color:#C9D2E0}
+.rec-note{border:1px solid #333;padding:10px 12px;font-size:14px;min-height:96px}
+.rec-noteline{margin-top:5px;min-height:24px;font-weight:700}
+.rec-sign{width:100%;border-collapse:collapse;margin-top:16px;table-layout:fixed}
+.rec-sign th{background:#F2F3F5;border:1px solid #333;padding:7px;font-size:14px;font-weight:700;text-align:center}
+.rec-sign td.box{border:1px solid #333;height:70px}
+.rec-sign td.date{border:1px solid #333;padding:6px 10px;font-size:13px;text-align:center;color:#333}
 @media print{
   body.print-record .rec-doc{display:block!important}
   body.print-record{background:#fff}
-  .rec-tbl td{height:30px}
-  @page{size:A4 landscape;margin:12mm}
+  body.print-record .rec-co{font-size:13px;margin-bottom:1px}
+  body.print-record .rec-title{font-size:20px;margin:0 0 2px}
+  body.print-record .rec-meta{font-size:12.5px;gap:5px 20px;margin:5px 0 4px}
+  body.print-record .rec-rule{margin:0 0 5px}
+  body.print-record .rec-sec{font-size:13px;margin:5px 0 3px}
+  body.print-record .rec-hint{font-size:10.5px}
+  body.print-record .rec-tbl th,body.print-record .rec-tbl td{padding:4px 6px;font-size:12.5px;height:22px}
+  body.print-record .rec-tbl thead th{font-size:11.5px;height:20px;padding:3px 4px}
+  body.print-record .rec-kpi td{font-size:15px;height:32px}
+  body.print-record .rec-kpi td b{font-size:19px}
+  body.print-record .rec-kpi td b{font-size:17px}
+  body.print-record .rec-cat td{height:20px;font-size:12px}
+  body.print-record .rec-tbl .rc-code{display:inline;font-size:9.5px;margin:0 0 0 5px}
+  body.print-record .rec-tbl .rc-ms{font-size:10.5px}
+  body.print-record .rec-tbl .rc-name{font-size:11.5px}
+  body.print-record .rec-tbl td{height:20px;padding:3px 5px;font-size:12px}
+  body.print-record .rec-cat td{height:18px}
+  body.print-record .rec-note{min-height:78px;padding:7px 10px;font-size:12px}
+  body.print-record .rec-sign{margin-top:8px}
+  body.print-record .rec-foot{page-break-inside:avoid;break-inside:avoid}
+  body.print-record .rec-doc{zoom:1}
+  body.print-record .rec-cat td{height:17px}
+  body.print-record .rec-sec{margin:4px 0 2px}
+  body.print-record .rec-sign th{font-size:12.5px;padding:5px}
+  body.print-record .rec-sign td.box{height:52px}
+  body.print-record .rec-sign td.date{font-size:12px;padding:4px 8px}
+  body.print-record .rec-tbl{page-break-inside:auto}
+  body.print-record .rec-tbl tr{page-break-inside:avoid}
 }
 @media print{
   body{background:#fff}
-  .top,.tabs,.tools,.foot,.stepbar,.bind,#toast{display:none!important}
+  .top,.tabs,.tools,.foot,.stepbar,.bind,#toast,.modebar,.filters{display:none!important}
   .pane{display:none!important}
   body.print-report #pRep.pane{display:block!important}
   body.print-report #printArea{display:none!important}
@@ -198,7 +253,6 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
   #printArea .fill{width:70px}
   #printArea .sign{display:flex;gap:24px;margin-top:20px;font-size:12px}
   #printArea .sign div{flex:1;border-top:1px solid #333;padding-top:5px}
-  @page{size:A4 portrait;margin:12mm}
 }
 @keyframes flashRow{0%{box-shadow:inset 0 0 0 3px var(--accent)}100%{box-shadow:inset 0 0 0 3px transparent}}
 tr.flash td{animation:flashRow 1.1s ease-out}
@@ -262,7 +316,7 @@ tr.flash td{animation:flashRow 1.1s ease-out}
     <button onclick="hideTip()" style="margin-left:4px;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:6px;padding:5px 10px">稍後</button>
   </div>
 
-  <div style="display:flex;gap:6px;margin-bottom:9px;font-size:13px;align-items:center;flex-wrap:wrap">
+  <div class="modebar" style="display:flex;gap:6px;margin-bottom:9px;font-size:13px;align-items:center;flex-wrap:wrap">
     <span style="color:var(--muted)">盤點方式</span>
     <button id="modeFull" onclick="setMode('full')" class="chip on" style="cursor:pointer">逐項盤點</button>
     <button id="modeDiff" onclick="setMode('diff')" class="chip" style="cursor:pointer">只填差異</button>
@@ -702,15 +756,22 @@ function stats(){
 }
 
 /* ── 報告 ── */
+function setPage(orient){
+  let st = document.getElementById('pageStyle');
+  if(!st){ st = document.createElement('style'); st.id = 'pageStyle'; document.head.appendChild(st); }
+  st.textContent = '@page{size:A4 ' + orient + ';margin:' + (orient==='landscape'?'10mm':'12mm') + ';}';
+}
 function printReport(){
-  document.body.classList.remove('print-blank');
+  document.body.classList.remove('print-blank','print-record');
   document.body.classList.add('print-report');
+  setPage('portrait');
   window.print();
 }
 function printRecord(){
   if(!hasData()){ msg('請先載入盤點清單'); return; }
-  document.body.classList.remove('print-blank','print-report','print-record');
+  document.body.classList.remove('print-blank','print-report');
   document.body.classList.add('print-record');
+  setPage('portrait');
   window.print();
 }
 function printBlank(){
@@ -729,8 +790,9 @@ function printBlank(){
      <table><thead><tr><th>商品編號</th><th>商品名稱</th><th style="text-align:right">電腦庫存</th><th>實際盤點</th><th>備註</th></tr></thead>
      <tbody>${rows}</tbody></table>
      <div class="sign"><div>盤點人員簽名</div><div>店長覆核</div></div>`;
-  document.body.classList.remove('print-report');
+  document.body.classList.remove('print-report','print-record');
   document.body.classList.add('print-blank');
+  setPage('portrait');
   window.print();
 }
 function report(){
@@ -830,51 +892,82 @@ function report(){
 
 function buildRecord(diff, c){
   const noDiff = diff.length === 0;
-  const rowsHtml = (noDiff ? [] : diff).map((r,i)=>{
+  let sumD=0, sumV=0;
+  const rowsHtml = (noDiff ? [] : diff).map(r=>{
     const a=got(r.id), d=a-r.q, amt=Math.round(d*(r.cost||0));
+    sumD+=d; sumV+=amt;
+    const cls = d>0 ? 'rc-plus' : 'rc-minus';
+    const money = (amt<0?'-$':'$') + Math.abs(amt).toLocaleString();
+    const ms = d>0 ? '<b>☑</b>多 ☐少' : '☐多 <b>☑</b>少';
     return `<tr>
-      <td class="rc-no">${i+1}</td>
-      <td class="rc-name">${esc(r.n)}</td>
-      <td class="rc-c">${r.q}</td>
-      <td class="rc-c">${a}</td>
-      <td class="rc-c">${d>0?'☑ 多　☐ 少':'☐ 多　☑ 少'}</td>
-      <td class="rc-reason"></td>
-      <td class="rc-c">${amt.toLocaleString()}</td>
-      <td></td>
+      <td class="rc-name">${esc(r.n)}<span class="rc-code">${esc(r.id)}</span></td>
+      <td>${r.q}</td>
+      <td>${a}</td>
+      <td class="rc-ms">${ms}</td>
+      <td class="${cls}">${Math.abs(d)}　${money}</td>
       <td></td>
     </tr>`;
   }).join('');
-  // 補到至少 12 列空白,方便手寫增補
+  // 補幾列空白供手寫增補
   let blanks='';
   const filled = noDiff ? 0 : diff.length;
-  for(let i=filled;i<Math.max(12,filled);i++){
-    blanks += `<tr><td class="rc-no">${i+1}</td><td></td><td></td><td></td><td class="rc-c">☐ 多　☐ 少</td><td></td><td></td><td></td><td></td></tr>`;
+  const blankTarget = noDiff ? 4 : 0;
+  for(let i=filled;i<filled+blankTarget;i++){
+    blanks += `<tr><td></td><td></td><td></td><td class="rc-ms">☐多 ☐少</td><td></td><td></td></tr>`;
   }
+  const totalCls = sumV<0 ? 'rc-minus' : 'rc-plus';
+  const totalTxt = noDiff ? '本次盤點無差異'
+    : `${sumD>0?'+'+sumD:sumD}　${(sumV<0?'-$':'$')+Math.abs(sumV).toLocaleString()}`;
+  const totalRow = `<tr class="rc-total">
+      <td class="rc-name">合計　${noDiff?'—':'差異 '+diff.length+' 項'}</td>
+      <td></td><td></td><td></td><td class="${totalCls}">${totalTxt}</td>
+      <td></td></tr>`;
   const el = document.getElementById('recordArea');
   el.innerHTML = `
-    <div class="rec-en">INVENTORY　COUNT　RECORD</div>
-    <div class="rec-title">庫　存　盤　點　結　果　紀　錄　表</div>
-    <table class="rec-head"><tbody>
-      <tr><td class="k">門市:</td><td class="v">${esc(cur)}</td><td class="k">盤點日期:</td><td class="v">${new Date().toLocaleDateString('zh-TW')}</td></tr>
-      <tr><td class="k">盤點人:</td><td class="v"></td><td class="k">當月庫存管理人員:</td><td class="v"></td></tr>
-    </tbody></table>
-    <div class="rec-check">
-      <span>${noDiff?'☑':'☐'}　本次盤點無差異（請於備註欄填寫「無差異」）</span>
-      <span>${noDiff?'☐':'☑'}　本次盤點有差異（請填寫下列表格）</span>
+    <div class="rec-co">倚盟電訊</div>
+    <div class="rec-title">門市盤點報告表</div>
+    <div class="rec-meta">
+      <span>門市:　<b>${esc(cur)}</b></span>
+      <span>盤點日期:　<b>${new Date().toLocaleDateString('zh-TW')}</b></span>
+      <span>盤點人:　<span class="fill"></span></span>
+      <span>當月庫存管理人員:　<span class="fill"></span></span>
     </div>
-    <table class="rec-tbl">
-      <thead><tr>
-        <th style="width:34px">No.</th><th>商 品 名 稱</th><th style="width:56px">電腦庫存</th>
-        <th style="width:56px">實際數量</th><th style="width:96px">多 / 少</th><th style="width:120px">差 異 原 因</th>
-        <th style="width:66px">盤差金額</th><th style="width:74px">盤差銷貨日</th><th style="width:60px">覆核人員</th>
-      </tr></thead>
-      <tbody>${rowsHtml}${blanks}</tbody>
+    <hr class="rec-rule">
+
+    <div class="rec-sec">一、盤點總覽</div>
+    <table class="rec-tbl rec-kpi">
+      <thead><tr><th>門市</th><th>差異品項</th><th>盤盈 / 盤虧</th><th>淨差異金額</th></tr></thead>
+      <tbody><tr>
+        <td><b>${esc(cur)}</b></td>
+        <td class="${c.bad?'rc-warn':'rc-plus'}"><b>${c.bad}</b> 項</td>
+        <td><span class="rc-plus">+${c.plus}</span> / <span class="rc-minus">-${c.minus}</span></td>
+        <td class="${(c.plusV-c.minusV)<0?'rc-minus':'rc-plus'}"><b>${((c.plusV-c.minusV)<0?'-$':'$')+Math.abs(Math.round(c.plusV-c.minusV)).toLocaleString()}</b></td>
+      </tr></tbody>
     </table>
-    <div class="rec-note"><b>備註</b>（若本次盤點無差異，請於此欄填寫「無差異」。）
-      <div class="rec-noteline">${noDiff?'無差異':''}</div></div>
-    <table class="rec-sign"><tbody>
-      <tr><td class="k">門市陪同盤點人員簽名:</td><td class="v"></td><td class="k">主管審核:</td><td class="v"></td></tr>
-    </tbody></table>`;
+
+    <div class="rec-sec">二、差異明細</div>
+    <table class="rec-tbl">
+      <colgroup>
+        <col class="c-nm"><col class="c-q"><col class="c-q">
+        <col class="c-ms"><col class="c-diff"><col class="c-dt">
+      </colgroup>
+      <thead><tr>
+        <th>商 品 名 稱 / 編 號</th><th>系統</th><th>實際</th>
+        <th>多/少</th><th>差異 / 金額</th><th>盤差銷貨日</th>
+      </tr></thead>
+      <tbody>${rowsHtml}${blanks}${totalRow}</tbody>
+    </table>
+    <div class="rec-foot">
+    <div class="rec-sec">三、備註　<span class="rec-hint">（差異原因、後續處理請於此欄補充說明）</span></div>
+    <div class="rec-note">${noDiff?'<b>本次盤點無差異。</b>':''}</div>
+    <div class="rec-sec">四、盤點確認簽名</div>
+    <table class="rec-sign">
+      <thead><tr><th>門市陪同盤點人員</th><th>主管覆核</th></tr></thead>
+      <tbody>
+        <tr><td class="box"></td><td class="box"></td></tr>
+        <tr><td class="date">日期:　　　年　　月　　日</td><td class="date">日期:　　　年　　月　　日</td></tr>
+      </tbody>
+    </table></div>`;
 }
 
 function hasData(){ return !!(cur && db.stores[cur]); }
