@@ -957,8 +957,9 @@ function render(){
 /* ── 統計 ── */
 function calc(){
   const rows = allItems();
-  let ok=0,bad=0,wait=0,extra=0,plus=0,minus=0;
+  let ok=0,bad=0,wait=0,extra=0,plus=0,minus=0,neg=0;
   rows.forEach(r=>{
+    if(r.q < 0){ neg++; return; }          // 負庫存另計,不算差異
     const st=state(r);
     if(st==='ok')ok++; else if(st==='bad')bad++; else if(st==='wait')wait++; else extra++;
     const a=got(r.id);
@@ -966,11 +967,12 @@ function calc(){
   });
   let plusV=0, minusV=0;
   rows.forEach(r=>{
+    if(r.q < 0) return;                    // 負庫存不列入盈虧計算
     const a=got(r.id); if(a===null) return;
     const d=a-r.q, c=r.cost||0;
     if(d>0) plusV += d*c; if(d<0) minusV += -d*c;
   });
-  return {rows, ok, bad, wait, extra, plus, minus, plusV, minusV, base:S().items.length};
+  return {rows, ok, bad, wait, extra, neg, plus, minus, plusV, minusV, base:S().items.length};
 }
 function stats(){
   if(!hasData()) return;
@@ -1025,7 +1027,8 @@ function printBlank(){
 function report(){
   if(!hasData()) return;
   const c = calc();
-  const diff = c.rows.filter(r=>state(r)==='bad').sort((a,b)=>(got(a.id)-a.q)-(got(b.id)-b.q));
+  const negs = c.rows.filter(r=>r.q < 0);
+  const diff = c.rows.filter(r=>state(r)==='bad' && r.q >= 0).sort((a,b)=>(got(a.id)-a.q)-(got(b.id)-b.q));
   const wait = c.rows.filter(r=>state(r)==='wait');
   const ext  = c.rows.filter(r=>state(r)==='extra');
   const byCat = {};
@@ -1117,7 +1120,10 @@ function report(){
   buildRecord(diff, c);
 }
 
+let _sec = 0;
+function SEC(){ return ['一','二','三','四','五','六','七'][_sec++] || ''; }
 function buildRecord(diff, c){
+  _sec = 0;
   const noDiff = diff.length === 0;
   let sumD=0, sumV=0;
   const rowsHtml = (noDiff ? [] : diff).map(r=>{
@@ -1161,7 +1167,7 @@ function buildRecord(diff, c){
     </div>
     <hr class="rec-rule">
 
-    <div class="rec-sec">一、盤點總覽</div>
+    <div class="rec-sec">${SEC()}、盤點總覽</div>
     <table class="rec-tbl rec-kpi">
       <thead><tr><th>門市</th><th>差異品項</th><th>盤盈 / 盤虧</th><th>淨差異金額</th></tr></thead>
       <tbody><tr>
@@ -1172,7 +1178,7 @@ function buildRecord(diff, c){
       </tr></tbody>
     </table>
 
-    <div class="rec-sec">二、差異明細</div>
+    <div class="rec-sec">${SEC()}、差異明細</div>
     <table class="rec-tbl">
       <colgroup>
         <col class="c-nm"><col class="c-q"><col class="c-q">
@@ -1186,12 +1192,30 @@ function buildRecord(diff, c){
     </table>
     <div class="rec-foot">
     ${(function(){
+      const neg = c.rows.filter(r=>r.q < 0);
+      if(!neg.length) return '';
+      const rws = neg.map(r=>{
+        const a = got(r.id);
+        return `<tr><td class="rc-name">${esc(r.n)}<span class="rc-code">${esc(r.id)}</span></td>
+          <td class="rc-minus">${r.q}</td><td>${a===null?'—':a}</td></tr>`;
+      }).join('');
+      return `<div class="rec-sec">${SEC()}、負庫存異常（系統帳目問題,非盤點差異）</div>
+        <table class="rec-tbl">
+          <colgroup><col style="width:64%"><col style="width:18%"><col style="width:18%"></colgroup>
+          <thead><tr><th>商 品 名 稱 / 編 號</th><th>系統庫存</th><th>實際</th></tr></thead>
+          <tbody>${rws}</tbody></table>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6">
+          系統庫存為負數代表帳目本身有誤（多半是出貨未進貨或退貨重複扣帳），需回系統查明沖銷,不列入本次盤點盈虧。
+        </div>`;
+    })()}
+
+    ${(function(){
       const miss = c.rows.filter(r=>r.sns && missingSns(r).length);
       if(!miss.length) return '';
       const rws = miss.map(r=>`<tr><td class="rc-name">${esc(r.n)}</td>
         <td class="rc-sncell">${esc(missingSns(r).join('、'))}</td>
         <td class="rc-minus">${missingSns(r).length} 台</td></tr>`).join('');
-      return `<div class="rec-sec">三、未盤到序號（唯一碼商品）</div>
+      return `<div class="rec-sec">${SEC()}、未盤到序號（唯一碼商品）</div>
         <table class="rec-tbl rec-sn">
           <colgroup><col style="width:40%"><col style="width:45%"><col style="width:15%"></colgroup>
           <thead><tr><th>商 品 名 稱</th><th>未掃到序號</th><th>數量</th></tr></thead>
@@ -1201,29 +1225,19 @@ function buildRecord(diff, c){
     ${(function(){
       const ex = c.rows.filter(r=>r.extra);
       if(!ex.length) return '';
-      const n = c.rows.some(r=>r.sns&&missingSns(r).length) ? '四' : '三';
+
       const rws = ex.map(r=>`<tr><td class="rc-name">${esc(r.n)}</td>
         <td class="rc-plus">${got(r.id)||0}</td></tr>`).join('');
-      return `<div class="rec-sec">${n}、清單外品項（門市多出來的東西）</div>
+      return `<div class="rec-sec">${SEC()}、清單外品項（門市多出來的東西）</div>
         <table class="rec-tbl">
           <colgroup><col style="width:80%"><col style="width:20%"></colgroup>
           <thead><tr><th>商 品 名 稱</th><th>實際數量</th></tr></thead>
           <tbody>${rws}</tbody></table>`;
     })()}
 
-    <div class="rec-sec">${(function(){
-      let n=2;
-      if(c.rows.some(r=>r.sns&&missingSns(r).length)) n++;
-      if(c.rows.some(r=>r.extra)) n++;
-      return ['一','二','三','四','五','六'][n];
-    })()}、備註　<span class="rec-hint">（差異原因、後續處理請於此欄補充說明）</span></div>
+    <div class="rec-sec">${SEC()}、備註　<span class="rec-hint">（差異原因、後續處理請於此欄補充說明）</span></div>
     <div class="rec-note">${noDiff?'<b>本次盤點無差異。</b>':''}</div>
-    <div class="rec-sec">${(function(){
-      let n=3;
-      if(c.rows.some(r=>r.sns&&missingSns(r).length)) n++;
-      if(c.rows.some(r=>r.extra)) n++;
-      return ['一','二','三','四','五','六'][n];
-    })()}、盤點確認簽名</div>
+    <div class="rec-sec">${SEC()}、盤點確認簽名</div>
     <table class="rec-sign">
       <thead><tr><th>門市陪同盤點人員</th><th>主管覆核</th></tr></thead>
       <tbody>
@@ -1527,7 +1541,8 @@ async function exportRecordXlsx(){
   if(!hasData()){ msg('請先載入盤點清單'); return; }
   await loadXLSX();
   const c = calc();
-  const diff = c.rows.filter(r=>state(r)==='bad').sort((a,b)=>(got(a.id)-a.q)-(got(b.id)-b.q));
+  const negs = c.rows.filter(r=>r.q < 0);
+  const diff = c.rows.filter(r=>state(r)==='bad' && r.q >= 0).sort((a,b)=>(got(a.id)-a.q)-(got(b.id)-b.q));
   const noDiff = diff.length===0;
   const A = [];
   A.push(['','','','','INVENTORY  COUNT  RECORD','','','','']);
