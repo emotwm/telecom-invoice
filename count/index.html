@@ -281,7 +281,7 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
 }
 @media print{
   body{background:#fff}
-  .top,.tabs,.tools,.foot,.stepbar,.bind,#toast,.modebar,.filters{display:none!important}
+  .top,.tabs,.tools,.foot,.stepbar,.bind,#toast,.modebar,.filters,.morefold,.camfold,#flash{display:none!important}
   .pane{display:none!important}
   body.print-report #pRep.pane{display:block!important}
   body.print-report #printArea{display:none!important}
@@ -678,6 +678,8 @@ let flashId=null, toastTimer=null;
 function missingSns(r){
   if(!r.sns) return [];
   const done = (S().serials && S().serials[r.id]) || [];
+  // 只填差異模式:完全沒碰過的品項視為相符,不列未掃序號
+  if(getMode()==='diff' && done.length===0 && got(r.id)===null) return [];
   return r.sns.filter(sn => !done.some(x=>norm(x)===norm(sn)));
 }
 function snSet(id){
