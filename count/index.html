@@ -678,8 +678,12 @@ let flashId=null, toastTimer=null;
 function missingSns(r){
   if(!r.sns) return [];
   const done = (S().serials && S().serials[r.id]) || [];
-  // 只填差異模式:完全沒碰過的品項視為相符,不列未掃序號
-  if(getMode()==='diff' && done.length===0 && got(r.id)===null) return [];
+  const a = got(r.id);
+  // 完全沒碰過:只填差異模式視為相符,不列未掃序號
+  if(done.length===0 && a===null) return getMode()==='diff' ? [] : r.sns.slice();
+  // 手動填過數量(沒掃序號):表示已人工盤過,不列未掃序號
+  if(done.length===0 && a!==null) return [];
+  // 有掃過序號:列出還沒掃到的那幾支
   return r.sns.filter(sn => !done.some(x=>norm(x)===norm(sn)));
 }
 function snSet(id){
