@@ -503,6 +503,7 @@ tr.flash td{animation:flashRow 1.1s ease-out}
       <button onclick="saveProgress()">下載進度檔</button>
       <button onclick="pick('prog')">載入進度</button>
       <button onclick="pick('list')">載入 CSV 清單</button>
+      <button onclick="openAddWin()">新增清單外品項</button>
       <button onclick="showDropped()">檢視排除品項</button>
       <button class="warn" onclick="resetAll()">清空本店</button>
     </div>
@@ -555,6 +556,29 @@ tr.flash td{animation:flashRow 1.1s ease-out}
 </div>
 
 <div id="printArea"></div>
+<div class="bind" id="addWin">
+  <div class="bind-in">
+    <h3 style="color:var(--extra)">新增清單外品項</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.6">
+      庫存清單裡沒有、但門市實際有的東西,登記在這裡,會列進報告讓主管知道。
+    </p>
+    <label style="display:block;font-size:13px;font-weight:700;margin-bottom:4px">商品名稱</label>
+    <input id="addName" placeholder="例如:iPhone 17 保護殼-黑" autocomplete="off"
+           style="width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font-size:16px;margin-bottom:10px">
+    <label style="display:block;font-size:13px;font-weight:700;margin-bottom:4px">數量</label>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+      <button onclick="addQtyStep(-1)" class="stp" style="width:44px;height:44px;font-size:20px">−</button>
+      <input id="addQty" type="number" inputmode="numeric" value="1" min="1"
+             style="flex:1;padding:12px;border:1px solid var(--line);border-radius:9px;font-size:18px;text-align:center;font-family:var(--mono)">
+      <button onclick="addQtyStep(1)" class="stp" style="width:44px;height:44px;font-size:20px">＋</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeAddWin()" style="flex:1;padding:14px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:15px">取消</button>
+      <button onclick="doAddExtra()" style="flex:2;padding:14px;border:0;border-radius:9px;background:var(--extra);color:#fff;font-size:16px;font-weight:700">新增</button>
+    </div>
+  </div>
+</div>
+
 <div id="flash"></div>
 <div id="toast"></div>
 
@@ -1174,9 +1198,32 @@ function buildRecord(diff, c){
           <tbody>${rws}</tbody></table>`;
     })()}
 
-    <div class="rec-sec">${c.rows.some(r=>r.sns&&missingSns(r).length)?'四':'三'}、備註　<span class="rec-hint">（差異原因、後續處理請於此欄補充說明）</span></div>
+    ${(function(){
+      const ex = c.rows.filter(r=>r.extra);
+      if(!ex.length) return '';
+      const n = c.rows.some(r=>r.sns&&missingSns(r).length) ? '四' : '三';
+      const rws = ex.map(r=>`<tr><td class="rc-name">${esc(r.n)}</td>
+        <td class="rc-plus">${got(r.id)||0}</td></tr>`).join('');
+      return `<div class="rec-sec">${n}、清單外品項（門市多出來的東西）</div>
+        <table class="rec-tbl">
+          <colgroup><col style="width:80%"><col style="width:20%"></colgroup>
+          <thead><tr><th>商 品 名 稱</th><th>實際數量</th></tr></thead>
+          <tbody>${rws}</tbody></table>`;
+    })()}
+
+    <div class="rec-sec">${(function(){
+      let n=2;
+      if(c.rows.some(r=>r.sns&&missingSns(r).length)) n++;
+      if(c.rows.some(r=>r.extra)) n++;
+      return ['一','二','三','四','五','六'][n];
+    })()}、備註　<span class="rec-hint">（差異原因、後續處理請於此欄補充說明）</span></div>
     <div class="rec-note">${noDiff?'<b>本次盤點無差異。</b>':''}</div>
-    <div class="rec-sec">${c.rows.some(r=>r.sns&&missingSns(r).length)?'五':'四'}、盤點確認簽名</div>
+    <div class="rec-sec">${(function(){
+      let n=3;
+      if(c.rows.some(r=>r.sns&&missingSns(r).length)) n++;
+      if(c.rows.some(r=>r.extra)) n++;
+      return ['一','二','三','四','五','六'][n];
+    })()}、盤點確認簽名</div>
     <table class="rec-sign">
       <thead><tr><th>門市陪同盤點人員</th><th>主管覆核</th></tr></thead>
       <tbody>
@@ -1365,6 +1412,32 @@ function openBind(code){
   document.getElementById('bindCode').textContent = code;
   document.getElementById('bind').classList.add('show');
   buzz('unknown');
+}
+function openAddWin(){
+  if(!hasData()){ msg('請先載入當天的庫存檔'); return; }
+  document.getElementById('addName').value='';
+  document.getElementById('addQty').value=1;
+  document.getElementById('addWin').classList.add('show');
+  setTimeout(()=>document.getElementById('addName').focus(), 80);
+}
+function closeAddWin(){ document.getElementById('addWin').classList.remove('show'); }
+function addQtyStep(d){
+  const el=document.getElementById('addQty');
+  el.value = Math.max(1, (parseInt(el.value)||1) + d);
+}
+function doAddExtra(){
+  const name = document.getElementById('addName').value.trim();
+  const qty  = Math.max(1, parseInt(document.getElementById('addQty').value)||1);
+  if(!name){ alert('請輸入商品名稱'); return; }
+  const s0 = S();
+  const id = 'X' + Date.now().toString(36).toUpperCase();
+  s0.extra.push({id, n:name});
+  s0.counts[id] = qty;
+  s0.log.push({id, n:qty});
+  closeAddWin();
+  flashId = id;
+  refresh(); save();
+  msg('已新增清單外品項:' + name + ' × ' + qty);
 }
 function addExtra(){
   if(!pendingCode) return;
