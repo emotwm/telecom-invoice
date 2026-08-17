@@ -566,12 +566,17 @@ tr.flash td{animation:flashRow 1.1s ease-out}
     <input id="addName" placeholder="例如:iPhone 17 保護殼-黑" autocomplete="off"
            style="width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font-size:16px;margin-bottom:10px">
     <label style="display:block;font-size:13px;font-weight:700;margin-bottom:4px">數量</label>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
       <button onclick="addQtyStep(-1)" class="stp" style="width:44px;height:44px;font-size:20px">−</button>
       <input id="addQty" type="number" inputmode="numeric" value="1" min="1"
              style="flex:1;padding:12px;border:1px solid var(--line);border-radius:9px;font-size:18px;text-align:center;font-family:var(--mono)">
       <button onclick="addQtyStep(1)" class="stp" style="width:44px;height:44px;font-size:20px">＋</button>
     </div>
+    <label style="display:block;font-size:13px;font-weight:700;margin-bottom:4px">單位成本
+      <span style="font-weight:400;color:var(--muted)">(不知道可留空)</span></label>
+    <input id="addCost" type="number" inputmode="numeric" placeholder="0" min="0"
+           style="width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;font-size:17px;
+                  text-align:right;font-family:var(--mono);margin-bottom:14px">
     <div style="display:flex;gap:8px">
       <button onclick="closeAddWin()" style="flex:1;padding:14px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:15px">取消</button>
       <button onclick="doAddExtra()" style="flex:2;padding:14px;border:0;border-radius:9px;background:var(--extra);color:#fff;font-size:16px;font-weight:700">新增</button>
@@ -616,7 +621,7 @@ const isUniq = c => /唯一|展示機/.test(c);
 const S = () => db.stores[cur];
 function allItems(){
   const s = S(); if(!s) return [];
-  return s.items.concat((s.extra||[]).map(e=>({c:'清單外', id:e.id, n:e.n, q:0, cost:0, extra:true})));
+  return s.items.concat((s.extra||[]).map(e=>({c:'清單外', id:e.id, n:e.n, q:0, cost:e.cost||0, extra:true})));
 }
 function got(id){ const v = S().counts[id]; return v === undefined ? null : v; }
 // countMode: 'full' 逐項盤(未填=未盤) / 'diff' 只填差異(未填=相符)
@@ -1226,13 +1231,24 @@ function buildRecord(diff, c){
       const ex = c.rows.filter(r=>r.extra);
       if(!ex.length) return '';
 
-      const rws = ex.map(r=>`<tr><td class="rc-name">${esc(r.n)}</td>
-        <td class="rc-plus">${got(r.id)||0}</td></tr>`).join('');
+      let exTotal = 0;
+      const rws = ex.map(r=>{
+        const q = got(r.id)||0, cst = r.cost||0, amt = Math.round(q*cst);
+        exTotal += amt;
+        return `<tr><td class="rc-name">${esc(r.n)}</td>
+          <td class="rc-plus">${q}</td>
+          <td>${cst? '$'+cst.toLocaleString() : '—'}</td>
+          <td class="rc-plus">${amt? '$'+amt.toLocaleString() : '—'}</td></tr>`;
+      }).join('');
       return `<div class="rec-sec">${SEC()}、清單外品項（門市多出來的東西）</div>
         <table class="rec-tbl">
-          <colgroup><col style="width:80%"><col style="width:20%"></colgroup>
-          <thead><tr><th>商 品 名 稱</th><th>實際數量</th></tr></thead>
-          <tbody>${rws}</tbody></table>`;
+          <colgroup><col style="width:52%"><col style="width:14%"><col style="width:17%"><col style="width:17%"></colgroup>
+          <thead><tr><th>商 品 名 稱</th><th>實際數量</th><th>單位成本</th><th>金額</th></tr></thead>
+          <tbody>${rws}
+            <tr class="rc-total"><td class="rc-name">合計　${ex.length} 項</td>
+              <td>${ex.reduce((t,r)=>t+(got(r.id)||0),0)}</td><td></td>
+              <td>${exTotal? '$'+exTotal.toLocaleString() : '—'}</td></tr>
+          </tbody></table>`;
     })()}
 
     <div class="rec-sec">${SEC()}、備註　<span class="rec-hint">（差異原因、後續處理請於此欄補充說明）</span></div>
@@ -1431,6 +1447,7 @@ function openAddWin(){
   if(!hasData()){ msg('請先載入當天的庫存檔'); return; }
   document.getElementById('addName').value='';
   document.getElementById('addQty').value=1;
+  document.getElementById('addCost').value='';
   document.getElementById('addWin').classList.add('show');
   setTimeout(()=>document.getElementById('addName').focus(), 80);
 }
@@ -1442,10 +1459,11 @@ function addQtyStep(d){
 function doAddExtra(){
   const name = document.getElementById('addName').value.trim();
   const qty  = Math.max(1, parseInt(document.getElementById('addQty').value)||1);
+  const cost = Math.max(0, parseFloat(document.getElementById('addCost').value)||0);
   if(!name){ alert('請輸入商品名稱'); return; }
   const s0 = S();
   const id = 'X' + Date.now().toString(36).toUpperCase();
-  s0.extra.push({id, n:name});
+  s0.extra.push({id, n:name, cost});
   s0.counts[id] = qty;
   s0.log.push({id, n:qty});
   closeAddWin();
@@ -1456,7 +1474,7 @@ function doAddExtra(){
 function addExtra(){
   if(!pendingCode) return;
   const s = S();
-  if(!s.extra.some(e=>e.id===pendingCode)) s.extra.push({id:pendingCode, n:'清單外品項 '+pendingCode});
+  if(!s.extra.some(e=>e.id===pendingCode)) s.extra.push({id:pendingCode, n:'清單外品項 '+pendingCode, cost:0});
   db.alias[pendingCode] = pendingCode;
   const code = pendingCode; closeBind(); bump(code, step());
 }
