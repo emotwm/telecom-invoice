@@ -304,6 +304,10 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
   #printArea .pmeta{font-size:12px;color:#444;margin-bottom:10px}
   #printArea .cathead td{background:#f0f0f0;font-weight:700}
   #printArea .fill{width:70px}
+  #printArea .sncode{font-family:monospace;font-size:11px;letter-spacing:.02em}
+  #printArea .snrow td{background:#FAFBFC}
+  #printArea .cont{color:#999}
+  #printArea .chk{text-align:center;font-size:15px;width:70px}
   #printArea .sign{display:flex;gap:24px;margin-top:20px;font-size:12px}
   #printArea .sign div{flex:1;border-top:1px solid #333;padding-top:5px}
 }
@@ -1014,14 +1018,25 @@ function printBlank(){
   let rows='', lastCat='';
   items.forEach(r=>{
     if(r.c!==lastCat){ rows += `<tr class="cathead"><td colspan="5">${esc(r.c)}</td></tr>`; lastCat=r.c; }
-    rows += `<tr><td style="font-family:monospace;font-size:11px">${esc(r.id)}</td>
-      <td>${esc(r.n)}${isUniq(r.c)?' ★':''}</td><td style="text-align:right">${r.q}</td>
-      <td class="fill"></td><td style="width:90px"></td></tr>`;
+    if(r.sns && r.sns.length){
+      // 唯一碼商品:一台一行,印出序號讓現場逐支核對
+      r.sns.forEach((sn,i)=>{
+        rows += `<tr class="snrow">
+          <td class="sncode">${esc(sn)}</td>
+          <td>${i===0 ? esc(r.n)+' ★' : '<span class="cont">〃</span>'}</td>
+          <td style="text-align:right">${i===0 ? r.q : ''}</td>
+          <td class="chk">☐</td><td style="width:90px"></td></tr>`;
+      });
+    }else{
+      rows += `<tr><td style="font-family:monospace;font-size:11px">${esc(r.id)}</td>
+        <td>${esc(r.n)}</td><td style="text-align:right">${r.q}</td>
+        <td class="fill"></td><td style="width:90px"></td></tr>`;
+    }
   });
   document.getElementById('printArea').innerHTML =
     `<h1>庫存盤點單（空白）</h1>
-     <div class="pmeta">${esc(cur)} ｜ 盤點日期 ${new Date().toLocaleDateString('zh-TW')} ｜ 共 ${items.length} 項 ｜ ★ = 唯一碼商品需逐支核對</div>
-     <table><thead><tr><th>商品編號</th><th>商品名稱</th><th style="text-align:right">電腦庫存</th><th>實際盤點</th><th>備註</th></tr></thead>
+     <div class="pmeta">${esc(cur)} ｜ 盤點日期 ${new Date().toLocaleDateString('zh-TW')} ｜ 共 ${items.length} 項 ｜ ★ 唯一碼商品已列出序號,找到一台就在方框打勾</div>
+     <table><thead><tr><th>商品編號 / 序號</th><th>商品名稱</th><th style="text-align:right">電腦庫存</th><th>實際盤點</th><th>備註</th></tr></thead>
      <tbody>${rows}</tbody></table>
      <div class="sign"><div>盤點人員簽名</div><div>店長覆核</div></div>`;
   document.body.classList.remove('print-report','print-record');
