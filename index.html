@@ -491,8 +491,15 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
     </div>
     <div class="card">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px">➕ 新增廠商</div>
-      <div class="lbl" style="margin-top:0">廠商名稱 <span style="color:#c00">*</span></div>
-      <input type="text" id="nv-label" placeholder="例：新光配件">
+      <div class="lbl" style="margin-top:0">分類 <span style="color:#c00">*</span></div>
+      <select id="nv-cat">
+        <option value="acc">配件廠商</option>
+        <option value="twm">台哥大</option>
+        <option value="cash">現金盤</option>
+        <option value="custom">自訂廠商</option>
+      </select>
+      <div class="lbl">廠商名稱 <span style="color:#c00">*</span></div>
+      <input type="text" id="nv-label" placeholder="例：普格爾 — 台製配件">
       <div class="lbl">單號欄位名稱 <span style="color:#c00">*</span></div>
       <input type="text" id="nv-nolabel" placeholder="例：出貨單號">
       <div class="lbl">單號格式說明</div>
@@ -635,7 +642,7 @@ let customVendors=[];
 let customVendorId=100;
 
 const VB={twm:'v-twm',guangji:'v-gj',junting:'v-jt',cash:'v-cash',repair:'v-repair',film:'v-film'};
-function getVB(vGroup){return VB[vGroup]||'v-custom';}
+function getVB(vGroup){if(VB[vGroup])return VB[vGroup];const v=VC[vGroup];if(v&&v.catCls)return v.catCls;return 'v-custom';}
 
 const ACCS={};const PWS={}; // 改用動態 storeList + buildACCS()
 
@@ -1825,7 +1832,10 @@ function addVendor(){
   if(!label){msg.style.color='#c00';msg.textContent='請填寫廠商名稱';return;}
   if(!noLabel){msg.style.color='#c00';msg.textContent='請填寫單號欄位名稱';return;}
   const key='custom-'+(customVendorId++);
-  const newV={key,label,vGroup:key,noLabel,noEx:noEx||'請輸入單號',
+  const cat=(document.getElementById('nv-cat')||{}).value||'custom';
+  const catLabelMap={twm:'台哥大',acc:'配件廠商',cash:'現金盤',custom:'自訂廠商'};
+  const catClsMap={twm:'v-twm',acc:'v-gj',cash:'v-cash',custom:'v-custom'};
+  const newV={key,label,vGroup:key,cat:catLabelMap[cat]||'自訂廠商',catCls:catClsMap[cat]||'v-custom',noLabel,noEx:noEx||'請輸入單號',
     hasOcr:false,needsManual:false,requirePhoto:true,itemLabel:'品名數量',itemRequired:false,builtIn:false};
   customVendors.push(newV);
   VC[key]={...newV};
@@ -1923,20 +1933,20 @@ function delCustomVendor(key){
   document.getElementById('del-modal').classList.add('open');
 }
 function refreshVendorSelects(){
-  // 更新門市端廠商選單
+  // 更新門市端廠商選單（依分類放到對的區）
   const vsel=document.getElementById('vsel');
   if(vsel){
-    const old=vsel.querySelector('optgroup[label="自訂廠商"]');
-    if(old)old.remove();
-    if(customVendors.length){
-      const og=document.createElement('optgroup');og.label='自訂廠商';
-      customVendors.forEach(v=>{
-        const o=document.createElement('option');
-        o.value=v.key;o.textContent=v.label;
-        og.appendChild(o);
-      });
-      vsel.appendChild(og);
-    }
+    vsel.querySelectorAll('option[data-custom]').forEach(o=>o.remove());
+    const emptyCustom=vsel.querySelector('optgroup[label="自訂廠商"]');
+    if(emptyCustom && !emptyCustom.querySelector('option')) emptyCustom.remove();
+    customVendors.forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v.key;o.textContent=v.label;o.setAttribute('data-custom','1');
+      const catLabel=v.cat||'自訂廠商';
+      let og=[...vsel.querySelectorAll('optgroup')].find(g=>g.label===catLabel);
+      if(!og){ og=document.createElement('optgroup'); og.label=catLabel; vsel.appendChild(og); }
+      og.appendChild(o);
+    });
   }
   // 更新總部廠商篩選
   const svd=document.getElementById('svd');
