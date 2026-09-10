@@ -89,6 +89,11 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .scF-hot .ic{font-size:34px}
 .scF-hot .num{font-size:40px;color:#b45309}
 .scF-hot .lbl{color:#8a5a12;font-size:14.5px;font-weight:800}
+.scF-on{outline:3px solid #1e6fb8;outline-offset:1px;box-shadow:0 4px 16px rgba(30,111,184,.28)}
+.cap-warn{border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:14.5px;font-weight:700;line-height:1.5}
+.cap-amber{background:#fff8e6;border:2px solid #e0a000;color:#8a5a12}
+.cap-red{background:#fdecec;border:2px solid #d6402f;color:#c0392b}
+.scF-hot.scF-on{outline-color:#e0a000;box-shadow:0 4px 16px rgba(224,160,0,.4)}
 @media(max-width:599px){
   #astats{grid-template-columns:1fr 1fr 1fr;gap:10px}
   #astats .scF-hot{grid-column:1/-1}
@@ -255,6 +260,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
           <option value="cash-other">其他現金盤 — 手機/平板</option>
         </optgroup>
       </select>
+      <div id="vsel-confirm" style="display:none;margin-top:12px"></div>
 
       <div id="no-wrap" style="display:none">
         <div class="lbl"><span id="no-lbl-txt">單號</span> <span style="font-size:10px;color:#888" id="no-lbl-ex"></span></div>
@@ -361,6 +367,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
   </div>
   <div class="page">
     <div class="stat-grid" id="astats"></div>
+    <div id="cap-warn" style="display:none"></div>
 
     <!-- 搜尋 -->
     <div class="card" style="padding:12px">
@@ -381,8 +388,8 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
           <option value="cash">現金盤</option>
         </select>
         <select id="sss" onchange="renderAdmin()">
-          <option value="pending">待處理（待覆核＋重複單）</option>
           <option value="">全部狀態</option>
+          <option value="pending">待處理（待覆核＋重複單）</option>
           <option value="待覆核">待覆核</option>
           <option value="已入庫">已入庫</option>
           <option value="重複單">重複單</option>
@@ -555,6 +562,7 @@ function buildACCS(){
 }
 
 function goStores(){showScreen('s-stores');renderStoreList();}
+function goVendors(){showScreen('s-vendors');renderVendorList();}
 
 function renderStoreList(){
   const el=document.getElementById('store-list');if(!el)return;
@@ -1024,6 +1032,22 @@ function onVC(){
   });
   const ocrEl=document.getElementById('ocr-info');if(ocrEl)ocrEl.style.display='none';
   document.getElementById('dup-live-warn').style.display='none';
+  // 「你選的是」確認條（防選錯）
+  const vcf=document.getElementById('vsel-confirm');
+  if(vcf){
+    if(!cfg){ vcf.style.display='none'; }
+    else{
+      const isAcc=(cfg.vGroup==='guangji'||cfg.vGroup==='junting');
+      vcf.style.display='block';
+      vcf.style.background=isAcc?'#fff4e6':'#eaf3fc';
+      vcf.style.border=isAcc?'2px solid #e8600c':'1.5px solid #bcd8f0';
+      vcf.style.borderRadius='12px';
+      vcf.style.padding='12px 14px';
+      vcf.innerHTML=`<div style="font-size:13px;color:#666;margin-bottom:4px">你選的是：</div>`
+        +`<div style="font-size:19px;font-weight:900;color:${isAcc?'#c0392b':'#1e6fb8'}">✓ ${cfg.label}</div>`
+        +(isAcc?`<div style="font-size:13.5px;color:#c0392b;font-weight:700;margin-top:5px">⚠️ 這是配件廠商，不是台哥大！確認貨是「${cfg.label.split(' ')[0]}」的再送出。</div>`:'');
+    }
+  }
   if(!cfg)return;
 
   // 單號欄位
@@ -1396,11 +1420,27 @@ function renderAdmin(){
 
   const tot=allRecs.length,done=allRecs.filter(r=>r.status==='已入庫').length;
   const pend=allRecs.filter(r=>r.status==='待覆核').length,dup=allRecs.filter(r=>r.status==='重複單').length;
+  const _sv=(document.getElementById('sss')||{}).value||'';
   document.getElementById('astats').innerHTML=`
-    <div class="scF scF-hot"><div class="ic">⏳</div><div><div class="num">${pend}</div><div class="lbl">待覆核 · 要處理</div></div></div>
-    <div class="scF scF-blue"><div class="ic">📋</div><div><div class="num">${tot}</div><div class="lbl">總筆數</div></div></div>
-    <div class="scF scF-green"><div class="ic">✅</div><div><div class="num">${done}</div><div class="lbl">已入庫</div></div></div>
-    <div class="scF scF-red"><div class="ic">⚠️</div><div><div class="num">${dup}</div><div class="lbl">重複單</div></div></div>`;
+    <div class="scF scF-hot${_sv==='待覆核'?' scF-on':''}" onclick="filterByStat('待覆核')" style="cursor:pointer"><div class="ic">⏳</div><div><div class="num">${pend}</div><div class="lbl">待覆核 · 要處理</div></div></div>
+    <div class="scF scF-blue${_sv===''?' scF-on':''}" onclick="filterByStat('')" style="cursor:pointer"><div class="ic">📋</div><div><div class="num">${tot}</div><div class="lbl">總筆數 · 看全部</div></div></div>
+    <div class="scF scF-green${_sv==='已入庫'?' scF-on':''}" onclick="filterByStat('已入庫')" style="cursor:pointer"><div class="ic">✅</div><div><div class="num">${done}</div><div class="lbl">已入庫</div></div></div>
+    <div class="scF scF-red${_sv==='重複單'?' scF-on':''}" onclick="filterByStat('重複單')" style="cursor:pointer"><div class="ic">⚠️</div><div><div class="num">${dup}</div><div class="lbl">重複單</div></div></div>`;
+
+  // 容量提醒（用資料庫全部筆數，不受篩選影響）
+  const totalAll=getDataRecs().length;
+  const cw=document.getElementById('cap-warn');
+  if(cw){
+    if(totalAll>=3500){
+      cw.style.display='block';cw.className='cap-warn cap-red';
+      cw.innerHTML=`⚠️ 資料量已達 ${totalAll} 筆，容量接近上限！請盡快用下方「🗑️ 批次刪除已入庫」清理很舊的已入庫資料，以免影響上傳。`;
+    }else if(totalAll>=2500){
+      cw.style.display='block';cw.className='cap-warn cap-amber';
+      cw.innerHTML=`🟡 資料量已達 ${totalAll} 筆，建議找時間用下方「🗑️ 批次刪除已入庫」清理舊的已入庫資料（清掉的只是很久以前的舊單，不影響最近的）。`;
+    }else{
+      cw.style.display='none';
+    }
+  }
 
   const el=document.getElementById('admin-result');
   if(!f.length){el.innerHTML='<div style="text-align:center;padding:24px;color:#888;font-size:13px">無符合記錄</div>';return;}
@@ -1645,6 +1685,13 @@ async function saveDetailNo(id){
     if(typeof renderAdmin==='function') renderAdmin();
     setTimeout(()=>{if(hint)hint.textContent='';},2500);
   }catch(e){ if(hint){hint.style.color='#c00';hint.textContent='儲存失敗，請重試';} console.warn('saveDetailNo',e); }
+}
+
+// 點統計卡→自動切換狀態篩選
+function filterByStat(v){
+  const sel=document.getElementById('sss');
+  if(sel){ sel.value=v; }
+  renderAdmin();
 }
 
 function showDetail(id){
