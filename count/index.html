@@ -287,7 +287,7 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
 }
 @media print{
   body{background:#fff}
-  .top,.tabs,.tools,.foot,.stepbar,.bind,#toast,.modebar,.filters,.morefold,.camfold,#flash{display:none!important}
+  .top,.tabs,.tools,.foot,.stepbar,.bind,#toast,.modebar,.filters,.morefold,.camfold,#flash,#backupTip{display:none!important}
   .pane{display:none!important}
   body.print-report #pRep.pane{display:block!important}
   body.print-report #printArea{display:none!important}
@@ -394,6 +394,11 @@ tr.flash td{animation:flashRow 1.1s ease-out}
     <button id="modeFull" onclick="setMode('full')" class="chip on" style="cursor:pointer">逐項盤點</button>
     <button id="modeDiff" onclick="setMode('diff')" class="chip" style="cursor:pointer">只填差異</button>
     <span id="modeHint" style="color:var(--muted);font-size:12px"></span>
+  </div>
+  <div class="modebar" style="display:flex;gap:6px;margin-bottom:9px;font-size:13px;align-items:center;flex-wrap:wrap">
+    <span style="color:var(--muted)">盤點範圍</span>
+    <button id="scope_all"   onclick="setScope('all')"   class="chip" style="cursor:pointer">全部商品</button>
+    <button id="scope_uniq"  onclick="setScope('uniq')"  class="chip" style="cursor:pointer">手機+平板+展示機</button>
   </div>
 
   <div class="tabs">
@@ -630,9 +635,17 @@ const esc = s => String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&g
 const norm = s => String(s).trim().replace(/^[_'\s]+/,'').toUpperCase();
 const isUniq = c => /唯一|展示機/.test(c);
 const S = () => db.stores[cur];
+/* 盤點範圍:all 全部 / phone 只盤手機 / uniq 手機+平板+展示機 */
+const SCOPES = {
+  all:   {label:'全部商品',        test: c => true},
+  uniq:  {label:'手機+平板+展示機', test: c => /行動電話|平板電腦|展示機/.test(c)}
+};
+function getScope(){ if(db.scope==='phone') db.scope='uniq'; return SCOPES[db.scope] ? db.scope : 'all'; }
+function inScope(r){ return SCOPES[getScope()].test(r.c || ''); }
+function scopedItems(){ const s = S(); return s ? s.items.filter(inScope) : []; }
 function allItems(){
   const s = S(); if(!s) return [];
-  return s.items.concat((s.extra||[]).map(e=>({c:'清單外', id:e.id, n:e.n, q:0, cost:e.cost||0, extra:true})));
+  return scopedItems().concat((s.extra||[]).map(e=>({c:'清單外', id:e.id, n:e.n, q:0, cost:e.cost||0, extra:true})));
 }
 function got(id){ const v = S().counts[id]; return v === undefined ? null : v; }
 // countMode: 'full' 逐項盤(未填=未盤) / 'diff' 只填差異(未填=相符)
@@ -789,7 +802,14 @@ function scan(raw){
   if(snItem){ hitSerial(snItem, code); return; }
   let r = allItems().find(x => norm(x.id) === code);
   if(!r && db.alias[code]) r = allItems().find(x => x.id === db.alias[code]);
-  if(!r){ openBind(code); return; }
+  if(!r){
+    const out = S().items.find(x => norm(x.id)===code || (x.sns && x.sns.some(y=>norm(y)===code)));
+    if(out){
+      msg('不在本次盤點範圍(' + SCOPES[getScope()].label + '):' + out.n);
+      flashScreen('dup'); buzz('dup'); return;
+    }
+    openBind(code); return;
+  }
   bump(r.id, step());
 }
 document.getElementById('q').addEventListener('keydown', e=>{
@@ -1008,7 +1028,7 @@ function calc(){
     const d=a-r.q, c=r.cost||0;
     if(d>0) plusV += d*c; if(d<0) minusV += -d*c;
   });
-  return {rows, ok, bad, wait, extra, neg, plus, minus, plusV, minusV, base:S().items.length};
+  return {rows, ok, bad, wait, extra, neg, plus, minus, plusV, minusV, base:scopedItems().length};
 }
 function stats(){
   if(!hasData()) return;
@@ -1041,7 +1061,7 @@ function printRecord(){
 }
 function printBlank(){
   if(!hasData()){ msg('請先載入盤點清單'); return; }
-  const items = S().items.slice().sort((a,b)=> a.c<b.c?-1:a.c>b.c?1:0);
+  const items = scopedItems().slice().sort((a,b)=> a.c<b.c?-1:a.c>b.c?1:0);
   let rows='', lastCat='';
   items.forEach(r=>{
     if(r.c!==lastCat){ rows += `<tr class="cathead"><td colspan="5">${esc(r.c)}</td></tr>`; lastCat=r.c; }
@@ -1209,6 +1229,7 @@ function buildRecord(diff, c){
     <div class="rec-meta">
       <span>門市:　<b>${esc(cur)}</b></span>
       <span>盤點日期:　<b>${new Date().toLocaleDateString('zh-TW')}</b></span>
+      ${getScope()!=='all' ? `<span>盤點範圍:　<b>${SCOPES[getScope()].label}</b></span>` : ''}
       <span>盤點人:　<span class="fill"></span></span>
       <span>當月庫存管理人員:　<span class="fill"></span></span>
     </div>
@@ -1331,11 +1352,20 @@ function fillStores(){
   if(!hasData()) return;
   document.getElementById('storeSel').innerHTML =
     Object.keys(db.stores).map(k=>`<option${k===cur?' selected':''}>${esc(k)}</option>`).join('');
-  const cats = [...new Set(S().items.map(r=>r.c))];
+  const cats = [...new Set(scopedItems().map(r=>r.c))];
   const catOpts = '<option value="">全部大類</option>' + cats.map(c=>`<option>${esc(c)}</option>`).join('');
   document.getElementById('fCat').innerHTML = catOpts;
   const qc = document.getElementById('qCat');
   if(qc) qc.innerHTML = catOpts;
+}
+function setScope(k){
+  db.scope = k;
+  Object.keys(SCOPES).forEach(x=>{
+    const b = document.getElementById('scope_'+x);
+    if(b) b.classList.toggle('on', x===k);
+  });
+  fillStores(); refresh();
+  if(hasData()) msg('盤點範圍:' + SCOPES[k].label + ',共 ' + scopedItems().length + ' 項');
 }
 function setMode(m){
   db.mode = m;
@@ -1881,7 +1911,7 @@ try{
   }
 }catch(e){}
 if(!restored){ db = {alias:{}, stores:{}}; cur = ''; }
-fillStores(); markStep(); setMode(getMode()); refresh();
+fillStores(); markStep(); setMode(getMode()); setScope(getScope()); refresh();
 setTimeout(()=>{ try{ document.getElementById('code').focus(); }catch(e){} }, 300);
 // 未加到主畫面時提醒(避開 Safari 七天清除)
 if(/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.standalone === false){
