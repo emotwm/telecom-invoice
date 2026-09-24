@@ -694,6 +694,18 @@ function bump(id, n){
   checkBackup();
   refresh();
 }
+/* 唯一碼商品:數量改變時,序號的勾選跟著同步
+   按 + 就勾起下一支還沒盤到的,按 − 就取消最後勾的那支 */
+function syncSerials(r, n){
+  if(!r || !r.sns) return;
+  const list = snSet(r.id);
+  while(list.length > n) list.pop();
+  for(const sn of r.sns){
+    if(list.length >= n) break;
+    if(!list.some(x=>snEq(x, sn))) list.push(sn);
+  }
+  if(!list.length) delete S().serials[r.id];
+}
 function nudge(id, delta){
   const r = allItems().find(x=>x.id===id);
   if(!r) return;
@@ -701,14 +713,23 @@ function nudge(id, delta){
   let v = (cur0===null ? 0 : cur0) + delta;
   if(v < 0) v = 0;
   S().counts[id] = v;
+  syncSerials(r, v);
   S().log.push({id, n:delta});
   flashId = id;
   refresh(); save();
 }
 function setQty(id, v){
   const s = S();
-  if(v === '') delete s.counts[id]; else s.counts[id] = Number(v);
-  refresh();
+  const r = allItems().find(x=>x.id===id);
+  if(v === ''){
+    delete s.counts[id];
+    if(r && r.sns && s.serials) delete s.serials[id];
+  }else{
+    const n = Math.max(0, Number(v)||0);
+    s.counts[id] = n;
+    syncSerials(r, n);
+  }
+  refresh(); save();
 }
 function undo(){
   const s = S(), last = s.log.pop();
@@ -731,7 +752,7 @@ let flashId=null, toastTimer=null;
 function snChips(r){
   const done = (S().serials && S().serials[r.id]) || [];
   return '<span class="snlist">' + r.sns.map(sn=>{
-    const hit = done.some(x=>norm(x)===norm(sn));
+    const hit = done.some(x=>snEq(x, sn));
     return `<span class="snchip${hit?' on':''}" onclick="toggleSn('${r.id}','${esc(sn)}')">${hit?'☑':'☐'} ${esc(sn)}</span>`;
   }).join('') + '</span>';
 }
@@ -739,7 +760,7 @@ function toggleSn(id, sn){
   const st = S();
   st.serials = st.serials || {};
   const list = st.serials[id] = st.serials[id] || [];
-  const i = list.findIndex(x=>norm(x)===norm(sn));
+  const i = list.findIndex(x=>snEq(x, sn));
   if(i>=0){ list.splice(i,1); } else { list.push(sn); }
   st.counts[id] = list.length;
   if(!list.length) delete st.counts[id];
@@ -754,7 +775,22 @@ function missingSns(r){
   // 手動填過數量(沒掃序號):表示已人工盤過,不列未掃序號
   if(done.length===0 && a!==null) return [];
   // 有掃過序號:列出還沒掃到的那幾支
-  return r.sns.filter(sn => !done.some(x=>norm(x)===norm(sn)));
+  return r.sns.filter(sn => !done.some(x=>snEq(x, sn)));
+}
+/* 序號比對:容錯處理
+   系統匯出的序號常帶尾巴「-」或兩段併成「65547/W6T200307」,
+   但條碼槍掃出來是乾淨的一段,所以要能對得上。 */
+function snKey(v){ return norm(v).replace(/[^A-Z0-9]+$/,'').replace(/^[^A-Z0-9]+/,''); }
+function snParts(v){
+  return snKey(v).split(/[^A-Z0-9]+/).filter(x=>x.length>=6);
+}
+function snEq(a, b){
+  const ka = snKey(a), kb = snKey(b);
+  if(!ka || !kb) return false;
+  if(ka === kb) return true;
+  const pa = snParts(a), pb = snParts(b);
+  if(pa.includes(kb) || pb.includes(ka)) return true;
+  return pa.some(x => pb.includes(x));
 }
 function snSet(id){
   const st = S();
@@ -764,8 +800,8 @@ function snSet(id){
 }
 function hitSerial(r, code){
   const list = snSet(r.id);
-  const real = (r.sns.find(y=>norm(y)===code)) || code;
-  if(list.some(x=>norm(x)===code)){
+  const real = (r.sns.find(y=>snEq(y, code))) || code;
+  if(list.some(x=>snEq(x, real))){
     msg('這支已經掃過了:' + real);
     flashScreen('dup'); buzz('dup'); return;
   }
@@ -798,12 +834,12 @@ function scan(raw){
   gunLast = code; gunAt = now;
 
   // 唯一碼商品:掃到序號 → 只記錄該支,不重複累加
-  const snItem = allItems().find(x => x.sns && x.sns.some(y=>norm(y)===code));
+  const snItem = allItems().find(x => x.sns && x.sns.some(y=>snEq(y, code)));
   if(snItem){ hitSerial(snItem, code); return; }
   let r = allItems().find(x => norm(x.id) === code);
   if(!r && db.alias[code]) r = allItems().find(x => x.id === db.alias[code]);
   if(!r){
-    const out = S().items.find(x => norm(x.id)===code || (x.sns && x.sns.some(y=>norm(y)===code)));
+    const out = S().items.find(x => norm(x.id)===code || (x.sns && x.sns.some(y=>snEq(y, code))));
     if(out){
       msg('不在本次盤點範圍(' + SCOPES[getScope()].label + '):' + out.n);
       flashScreen('dup'); buzz('dup'); return;
@@ -1340,10 +1376,23 @@ function emptyState(){
   ['mOk','mBad','mExtra'].forEach(i=>document.getElementById(i).style.width='0%');
   document.getElementById('storeSel').innerHTML='<option>尚未載入門市</option>';
 }
+/* 舊資料補正:先前用 + 或手填數量的唯一碼商品,序號沒被勾起來 */
+function backfillSerials(){
+  const st = S(); if(!st || st._snFixed) return;
+  st._snFixed = true;
+  (st.items||[]).forEach(r=>{
+    if(!r.sns) return;
+    const n = st.counts[r.id];
+    if(n === undefined || n <= 0) return;
+    if(st.serials && st.serials[r.id] && st.serials[r.id].length) return;
+    syncSerials(r, n);
+  });
+}
 function refresh(){
   const hero = document.querySelector('.tools button.hero');
   if(hero) hero.classList.toggle('loaded', hasData());
   if(!hasData()){ emptyState(); return; }
+  backfillSerials();
   qRender(); render(); stats(); report(); save();
 }
 
