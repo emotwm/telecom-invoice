@@ -66,6 +66,9 @@ input,select{font-family:inherit;font-size:16px}
 .hit-n{font-size:14px;font-weight:600;line-height:1.35;word-break:break-all}
 .hit-s{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
 .hit-sn{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:3px;word-break:break-all}
+.delx{display:inline-block;margin-top:6px;border:1px solid #EFC5C1;background:#fff;color:var(--bad);
+      border-radius:7px;padding:5px 12px;font-size:12px}
+.delx:active{background:var(--bad-bg)}
 .snlist{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .snchip{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:3px 6px;
         border:1px solid var(--line);border-radius:5px;color:var(--muted);background:#fff;cursor:pointer}
@@ -696,6 +699,20 @@ function bump(id, n){
 }
 /* 唯一碼商品:數量改變時,序號的勾選跟著同步
    按 + 就勾起下一支還沒盤到的,按 − 就取消最後勾的那支 */
+/* 刪除清單外品項(只有清單外的才可刪,庫存檔裡的品項不會被刪) */
+function removeExtra(id){
+  const st = S(); if(!st) return;
+  const e = (st.extra||[]).find(x=>x.id===id);
+  if(!e) return;
+  if(!confirm('刪除清單外品項?\n\n' + e.n)) return;
+  st.extra = st.extra.filter(x=>x.id!==id);
+  delete st.counts[id];
+  if(st.serials) delete st.serials[id];
+  st.log = (st.log||[]).filter(l=>l.id!==id);
+  Object.keys(db.alias||{}).forEach(k=>{ if(db.alias[k]===id) delete db.alias[k]; });
+  refresh(); save();
+  msg('已刪除清單外品項:' + e.n);
+}
 function syncSerials(r, n){
   if(!r || !r.sns) return;
   const list = snSet(r.id);
@@ -1033,7 +1050,8 @@ function render(){
     return `<tr id="row_${r.id}" class="r-${st==='wait'?'':st}">
       <td class="c-name">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}${r.q<0?' <span class="uniq" style="border-color:var(--bad);color:var(--bad)">負庫存</span>':''}
         <span class="c-code">${esc(r.id)}${r.also&&r.also.length?' + '+esc(r.also.join(' + ')):''} · ${esc(r.c)}</span>
-        ${r.sns ? snChips(r) : ''}</td>
+        ${r.sns ? snChips(r) : ''}
+        ${r.extra ? `<button class="delx" onclick="removeExtra('${r.id}')">刪除這筆</button>` : ''}</td>
       <td class="c-num">${r.q}</td>
       <td class="c-stepper">
         <button class="stp" onclick="nudge('${r.id}',-1)">−</button>
@@ -1393,6 +1411,7 @@ function refresh(){
   if(hero) hero.classList.toggle('loaded', hasData());
   if(!hasData()){ emptyState(); return; }
   backfillSerials();
+  fillCatOptions();
   qRender(); render(); stats(); report(); save();
 }
 
@@ -1401,11 +1420,22 @@ function fillStores(){
   if(!hasData()) return;
   document.getElementById('storeSel').innerHTML =
     Object.keys(db.stores).map(k=>`<option${k===cur?' selected':''}>${esc(k)}</option>`).join('');
+  fillCatOptions();
+}
+/* 大類選單:有清單外品項時一併列出,方便找出來刪掉 */
+function fillCatOptions(){
+  if(!hasData()) return;
   const cats = [...new Set(scopedItems().map(r=>r.c))];
-  const catOpts = '<option value="">全部大類</option>' + cats.map(c=>`<option>${esc(c)}</option>`).join('');
-  document.getElementById('fCat').innerHTML = catOpts;
-  const qc = document.getElementById('qCat');
-  if(qc) qc.innerHTML = catOpts;
+  if((S().extra||[]).length) cats.push('清單外');
+  const opts = '<option value="">全部大類</option>' + cats.map(c=>`<option>${esc(c)}</option>`).join('');
+  [['fCat'],['qCat']].forEach(([id])=>{
+    const el = document.getElementById(id); if(!el) return;
+    const keep = el.value;
+    if(el.innerHTML !== opts){
+      el.innerHTML = opts;
+      if(cats.includes(keep)) el.value = keep;
+    }
+  });
 }
 function setScope(k){
   db.scope = k;
