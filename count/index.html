@@ -66,6 +66,15 @@ input,select{font-family:inherit;font-size:16px}
 .hit-n{font-size:14px;font-weight:600;line-height:1.35;word-break:break-all}
 .hit-s{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
 .hit-sn{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:3px;word-break:break-all}
+.slrow{display:flex;gap:8px;align-items:baseline;padding:7px 8px;border-bottom:1px solid var(--line);font-size:12.5px}
+.slrow:last-child{border-bottom:0}
+.sltag{flex:none;font-size:11px;font-weight:700;border-radius:5px;padding:2px 7px}
+.sl-ok{background:var(--ok-bg);color:var(--ok)}
+.sl-dup{background:var(--extra-bg);color:var(--extra)}
+.sl-miss{background:var(--bad-bg);color:var(--bad)}
+.slcode{font-family:var(--mono);word-break:break-all}
+.slnote{color:var(--muted);font-size:11px;flex:1}
+.sltime{color:var(--muted);font-size:11px;flex:none}
 .delx{display:inline-block;margin-top:6px;border:1px solid #EFC5C1;background:#fff;color:var(--bad);
       border-radius:7px;padding:5px 12px;font-size:12px}
 .delx:active{background:var(--bad-bg)}
@@ -517,7 +526,7 @@ tr.flash td{animation:flashRow 1.1s ease-out}
   </div>
 
   <details class="morefold">
-    <summary>其他功能</summary>
+    <summary>其他功能　<span style="color:#9AA1AA">版本 2026-09-30</span></summary>
     <div class="tools" style="margin-top:9px">
       <button onclick="saveProgress()">下載進度檔</button>
       <button onclick="pick('prog')">載入進度</button>
@@ -526,6 +535,8 @@ tr.flash td{animation:flashRow 1.1s ease-out}
       <button onclick="showDropped()">檢視排除品項</button>
       <button class="warn" onclick="resetAll()">清空本店</button>
     </div>
+    <div class="toolgrp">掃描紀錄（最近 20 筆,條碼槍實際送出的內容）</div>
+    <div id="scanLog"><div class="qhint">還沒有掃描紀錄。</div></div>
     <div class="foot">
       <b>換門市</b> — 系統下載的原始 .xls / .xlsx 檔傳到手機後,按「載入當天庫存檔」直接開,會自動套用盤點 SOP。<br>
       <b>各店分開存</b> — 切換門市不會互相蓋掉。<br>
@@ -688,6 +699,7 @@ function bump(id, n){
   if(s.counts[id] < 0) s.counts[id] = 0;
   s.log.push({id, n});
   const r = allItems().find(x=>x.id===id);
+  if(r && r.sns) syncSerials(r, s.counts[id]);   // 唯一碼:勾選跟著數量走
   const st = state(r);
   flash(r, st, n);
   const kind = st==='extra' ? 'extra' : (got(id) > r.q ? 'over' : 'ok');
@@ -842,6 +854,23 @@ function toast(r, st){
   toastTimer = setTimeout(()=>{ el.className=''; }, 1800);
 }
 let gunLast='', gunAt=0;
+/* 掃描紀錄:原封不動記下條碼槍送出的內容與比對結果,方便對不上時查原因 */
+let scanLog = [];
+function logScan(raw, result, note){
+  scanLog.unshift({t:new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+                   raw:String(raw), result, note:note||''});
+  if(scanLog.length > 20) scanLog.pop();
+  renderScanLog();
+}
+function renderScanLog(){
+  const el = document.getElementById('scanLog'); if(!el) return;
+  if(!scanLog.length){ el.innerHTML = '<div class="qhint">還沒有掃描紀錄。</div>'; return; }
+  el.innerHTML = scanLog.map(x=>`<div class="slrow">
+      <span class="sltag sl-${x.result}">${x.result==='ok'?'對上':x.result==='dup'?'重複':'找不到'}</span>
+      <span class="slcode">${esc(x.raw)}</span>
+      <span class="slnote">${esc(x.note)}</span>
+      <span class="sltime">${x.t}</span></div>`).join('');
+}
 function scan(raw){
   if(!hasData()){ msg('請先載入當天的庫存檔'); return; }
   const code = norm(raw);
@@ -852,18 +881,40 @@ function scan(raw){
 
   // 唯一碼商品:掃到序號 → 只記錄該支,不重複累加
   const snItem = allItems().find(x => x.sns && x.sns.some(y=>snEq(y, code)));
-  if(snItem){ hitSerial(snItem, code); return; }
+  if(snItem){ logScan(raw, 'ok', '序號 · ' + snItem.n.slice(0,16)); hitSerial(snItem, code); return; }
   let r = allItems().find(x => norm(x.id) === code);
   if(!r && db.alias[code]) r = allItems().find(x => x.id === db.alias[code]);
   if(!r){
     const out = S().items.find(x => norm(x.id)===code || (x.sns && x.sns.some(y=>snEq(y, code))));
     if(out){
+      logScan(raw, 'dup', '不在盤點範圍');
       msg('不在本次盤點範圍(' + SCOPES[getScope()].label + '):' + out.n);
       flashScreen('dup'); buzz('dup'); return;
     }
+    // 找不到:若是長數字,很可能是 IMEI2 或 S/N
+    const near = nearestSerial(code);
+    logScan(raw, 'miss', near ? ('清單最接近:' + near) : '清單裡沒有');
+    if(/^[0-9]{13,17}$/.test(code) && near){
+      msg('這串號碼不在清單裡。清單上最接近的是 ' + near + ' — 可能你掃到 IMEI2 或 S/N,換掃另一組看看');
+      flashScreen('unknown'); buzz('unknown'); return;
+    }
     openBind(code); return;
   }
+  logScan(raw, 'ok', '商品編號 · ' + r.n.slice(0,16));
   bump(r.id, step());
+  if(r.sns) msg('已登記 1 台(掃到的是商品編號,不是序號 — 無法指定是哪一支)');
+}
+/* 找出清單裡跟掃到的號碼最像的序號(前綴相同最多者),用來提示 IMEI2 */
+function nearestSerial(code){
+  let best=null, bestLen=0;
+  allItems().forEach(x=>{
+    (x.sns||[]).forEach(sn=>{
+      const a = snKey(sn), b = snKey(code);
+      let i=0; while(i<a.length && i<b.length && a[i]===b[i]) i++;
+      if(i > bestLen && i >= Math.min(a.length,b.length)-3 && i >= 8){ bestLen=i; best=sn; }
+    });
+  });
+  return best;
 }
 document.getElementById('q').addEventListener('keydown', e=>{
   if(e.key !== 'Enter') return;
