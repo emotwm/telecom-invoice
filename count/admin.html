@@ -148,7 +148,7 @@ tbody tr:hover{background:#F7F9FC}
       <div class="bmeta">
         <span id="mMonth"></span>
         <span id="mCount"></span>
-        <span style="color:#9AA1AA">版本 2026-10-19c</span>
+        <span style="color:#9AA1AA">版本 2026-10-19d</span>
       </div>
     </div>
     <button class="logout" onclick="logout()">登出</button>
@@ -237,6 +237,36 @@ async function api(action, extra){
   return j;
 }
 
+/* ── 日期：一律顯示成中文習慣的 2026/10/19，不要英文 ── */
+function p2(n){ return String(n).length<2 ? '0'+n : String(n); }
+function dparse(x){
+  if(x==null || x==='') return null;
+  if(x instanceof Date) return isNaN(x.getTime()) ? null : x;
+  if(typeof x === 'number'){ const d=new Date(x); return isNaN(d.getTime())?null:d; }
+  const s = String(x).trim();
+  if(!s) return null;
+  /* 帶時區的 ISO（…Z 或 +08:00）交給瀏覽器換算成台灣時間 */
+  if(/(Z|[+\-]\d{2}:?\d{2})$/.test(s) && /\d{2}:\d{2}/.test(s)){
+    const d = new Date(s); if(!isNaN(d.getTime())) return d;
+  }
+  /* 2026/10/19 或 2026-10-19，後面可能跟 10:18 */
+  const m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3], m[4]?+m[4]:0, m[5]?+m[5]:0);
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+function fdate(x){                       /* 2026/10/19 */
+  const d = dparse(x);
+  return d ? d.getFullYear()+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())
+           : String(x==null?'':x).trim();
+}
+function ftime(x){                       /* 10/19 10:18 */
+  const d = dparse(x);
+  return d ? p2(d.getMonth()+1)+'/'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes())
+           : String(x==null?'':x).trim();
+}
+function ts(x){ const d=dparse(x); return d ? d.getTime() : 0; }
+
 /* ── 列表 ── */
 async function load(){
   const m = document.getElementById('mon').value;       // yyyy-mm
@@ -248,8 +278,18 @@ async function load(){
     const j = await api('list');
     let rows = j.rows || [];
     rows.forEach(r=>{
-      r['盤點日期'] = String(r['盤點日期']==null?'':r['盤點日期']).trim().slice(0,10);
-      r['上傳時間'] = String(r['上傳時間']==null?'':r['上傳時間']).trim();
+      r._t = ts(r['上傳時間']);
+      r['盤點日期'] = fdate(r['盤點日期']);
+      r['上傳時間'] = ftime(r['上傳時間']);
+    });
+    /* 新到舊 */
+    rows.sort((a,b)=> b._t - a._t);
+    /* 同一店同一天重傳過 → 只留最新那份 */
+    const seen = {};
+    rows = rows.filter(r=>{
+      const k = r['門市'] + '|' + r['盤點日期'];
+      if(seen[k]) return false;
+      seen[k] = 1; return true;
     });
     ALL = rows.slice();
     if(m){
@@ -340,8 +380,8 @@ async function openDetail(id){
     let html = ''
       + '<div class="ov-head"><div>'
       +   '<h2>'+esc(m['門市'])+'　盤點結果</h2>'
-      +   '<div class="sub">盤點日 '+esc(m['盤點日期'])+'　｜　範圍 '+esc(m['盤點範圍'])
-      +   '　｜　上傳 '+esc(m['上傳時間'])+'</div>'
+      +   '<div class="sub">盤點日 '+esc(fdate(m['盤點日期']))+'　｜　範圍 '+esc(m['盤點範圍'])
+      +   '　｜　上傳 '+esc(ftime(m['上傳時間']))+'</div>'
       + '</div><button class="btn" onclick="closeDetail()">關閉</button></div>'
 
       + '<div class="kpis">'
@@ -431,7 +471,7 @@ function showAll(){
 /* ── 匯出 ── */
 function toCsv(){
   if(!ROWS.length){ toast('沒有資料可以匯出'); return; }
-  const head=Object.keys(ROWS[0]);
+  const head=Object.keys(ROWS[0]).filter(k=>k.charAt(0)!=='_');
   const lines=[head.join(',')].concat(ROWS.map(r=>head.map(h=>{
     const v=String(r[h]==null?'':r[h]);
     return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
