@@ -231,15 +231,20 @@ async function load(){
   const m = document.getElementById('mon').value;       // yyyy-mm
   const tb = document.getElementById('tb'), em = document.getElementById('empty');
   tb.innerHTML=''; em.style.display='block'; em.textContent='載入中…';
-  let from='', to='';
-  if(m){
-    const [y,mm]=m.split('-');
-    from = y+'/'+mm+'/01';
-    to   = y+'/'+mm+'/31';
-  }
   try{
-    const j = await api('list', {from, to});
-    ROWS = j.rows || [];
+    /* 全部拿回來再在這邊篩月份:試算表會把日期存成日期格式,
+       交給後端用文字比大小會對不上,所以統一在這裡處理 */
+    const j = await api('list');
+    let rows = j.rows || [];
+    rows.forEach(r=>{
+      r['盤點日期'] = String(r['盤點日期']==null?'':r['盤點日期']).trim().slice(0,10);
+      r['上傳時間'] = String(r['上傳時間']==null?'':r['上傳時間']).trim();
+    });
+    if(m){
+      const key = m.replace('-','/');            // 2026-10 → 2026/10
+      rows = rows.filter(r => r['盤點日期'].slice(0,7) === key);
+    }
+    ROWS = rows;
     paintStores(); paintTable();
     document.getElementById('mMonth').textContent = m ? m.replace('-','年')+'月' : '全部';
     document.getElementById('mCount').innerHTML = '已收到 <b>'+ROWS.length+'</b> 份';

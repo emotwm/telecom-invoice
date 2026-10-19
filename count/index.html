@@ -82,14 +82,36 @@ input,select{font-family:inherit;font-size:16px}
 .up-in .miss{border-color:var(--bad)!important;background:var(--bad-bg)!important}
 .othername{margin-top:7px}
 .up-in textarea{min-height:62px;resize:vertical;font-family:inherit}
-.sigwrap{position:relative;margin-top:6px}
+.sigwrap{position:relative;margin-top:6px;cursor:pointer}
 .sigpad{width:100%;height:120px;border:1.5px dashed var(--line);border-radius:9px;background:#fff;
-        display:block;touch-action:none}
+        display:block;touch-action:none;cursor:pointer}
 .sigpad.inked{border-style:solid;border-color:var(--ok)}
 .sigclr{position:absolute;right:7px;top:7px;border:1px solid var(--line);background:#fff;
         color:var(--muted);border-radius:6px;padding:4px 10px;font-size:12px}
-.sightip{position:absolute;left:0;right:0;top:46px;text-align:center;color:#C2C7CE;
-         font-size:13px;pointer-events:none}
+.sightip{position:absolute;left:0;right:0;top:42px;text-align:center;color:#8E95A0;
+         font-size:14px;font-weight:700;pointer-events:none}
+.sightip small{display:block;font-weight:400;font-size:12px;color:#B4BAC2;margin-top:3px}
+
+/* 全螢幕簽名 */
+.sigwin{display:none;position:fixed;inset:0;z-index:70;background:#fff;flex-direction:column}
+.sigwin.show{display:flex}
+.sigwin-top{display:flex;align-items:center;justify-content:space-between;gap:10px;
+            padding:13px 15px;border-bottom:1px solid var(--line);flex:none}
+.sigwin-top b{font-size:16px}
+.sigwin-top span{font-size:12.5px;color:var(--muted);margin-left:7px}
+.sigwin-x{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;color:var(--muted)}
+.sigwin-body{flex:1;display:flex;align-items:center;justify-content:center;padding:10px 14px}
+.sigwin-pad{position:relative;width:100%;height:min(46vh,340px);border:2px dashed var(--line);
+            border-radius:12px;overflow:hidden;background:#fff}
+#sigBig{display:block;width:100%;height:100%;touch-action:none}
+.sigbase{position:absolute;left:7%;right:7%;bottom:26%;border-bottom:1.5px solid #E3E6EA;pointer-events:none}
+.sigbig-tip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+            color:#C2C7CE;font-size:19px;pointer-events:none}
+.sigwin-foot{display:flex;gap:10px;padding:0 14px calc(14px + env(safe-area-inset-bottom));flex:none}
+.sigwin-foot button{flex:1;padding:17px;border-radius:11px;font-size:17px;font-weight:700;
+                    border:1px solid var(--line);background:#fff;color:var(--ink)}
+.sigwin-foot button.ok{flex:1.6;border-color:var(--ok);background:var(--ok);color:#fff}
+.sigwin-foot button:disabled{opacity:.45}
 .sigpad.inked + .sightip{display:none}
 .repfold{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
 .repfold>summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--accent);list-style:none}
@@ -649,19 +671,19 @@ tr.flash td{animation:flashRow 1.1s ease-out}
     <div class="up-lab">門市盤點人員<span>選名字 + 簽名</span></div>
     <select id="upSel1" onchange="pickName(1)"></select>
     <input type="text" id="upName1" class="othername" placeholder="請輸入姓名" autocomplete="off" style="display:none">
-    <div class="sigwrap">
+    <div class="sigwrap" onclick="openSig(1)">
       <canvas class="sigpad" id="sig1"></canvas>
-      <div class="sightip">用手指在這裡簽名</div>
-      <button class="sigclr" onclick="sigClear(1)">清除</button>
+      <div class="sightip" id="sigtip1">點這裡簽名<small>會放大整個畫面比較好簽</small></div>
+      <button class="sigclr" onclick="event.stopPropagation();sigWipe(1)">清除</button>
     </div>
 
     <div class="up-lab">主管覆核<span>選名字 + 簽名（沒有就留空）</span></div>
     <select id="upSel2" onchange="pickName(2)"></select>
     <input type="text" id="upName2" class="othername" placeholder="請輸入姓名" autocomplete="off" style="display:none">
-    <div class="sigwrap">
+    <div class="sigwrap" onclick="openSig(2)">
       <canvas class="sigpad" id="sig2"></canvas>
-      <div class="sightip">用手指在這裡簽名</div>
-      <button class="sigclr" onclick="sigClear(2)">清除</button>
+      <div class="sightip" id="sigtip2">點這裡簽名<small>會放大整個畫面比較好簽</small></div>
+      <button class="sigclr" onclick="event.stopPropagation();sigWipe(2)">清除</button>
     </div>
 
     <div class="up-lab">備註<span>差異原因、後續處理（沒有就留空）</span></div>
@@ -672,6 +694,24 @@ tr.flash td{animation:flashRow 1.1s ease-out}
       <button class="pad-ok" id="upGo" onclick="doUpload()">確定上傳</button>
     </div>
     <div class="qhint" id="upMsg" style="text-align:center;margin-top:8px"></div>
+  </div>
+</div>
+
+<div class="sigwin" id="sigWin">
+  <div class="sigwin-top">
+    <div><b id="sigWho">簽名</b><span id="sigWhoName"></span></div>
+    <button class="sigwin-x" onclick="sigCancel()">取消</button>
+  </div>
+  <div class="sigwin-body">
+    <div class="sigwin-pad">
+      <canvas id="sigBig"></canvas>
+      <div class="sigbase"></div>
+      <div class="sigbig-tip" id="sigBigTip">用手指在這裡簽名</div>
+    </div>
+  </div>
+  <div class="sigwin-foot">
+    <button onclick="sigBigClear()">清除重簽</button>
+    <button class="ok" id="sigOk" onclick="sigDone()">完成</button>
   </div>
 </div>
 
@@ -965,36 +1005,131 @@ function paintUpStat(){
   }
 }
 
-/* ── 簽名板 ── */
-const sigState = {1:{ink:false},2:{ink:false}};
-function sigSetup(n){
-  const cv=document.getElementById('sig'+n);
+/* ── 簽名：小框是預覽，點了開全螢幕 ── */
+const sigState = {1:{ink:false, data:''}, 2:{ink:false, data:''}};
+let sigNow = 0;
+
+/* 小預覽框 */
+function sigPreview(n){
+  const cv=document.getElementById('sig'+n), tip=document.getElementById('sigtip'+n);
   if(!cv) return;
   const r=cv.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,2);
   cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
   const ctx=cv.getContext('2d');
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#14171C';
   ctx.clearRect(0,0,r.width,r.height);
-  cv.classList.remove('inked'); sigState[n].ink=false;
+  const d=sigState[n].data;
+  if(d){
+    cv.classList.add('inked'); if(tip) tip.style.display='none';
+    const img=new Image();
+    img.onload=()=>{
+      const sc=Math.min(r.width/img.width, r.height/img.height);
+      const w=img.width*sc, h=img.height*sc;
+      ctx.drawImage(img,(r.width-w)/2,(r.height-h)/2,w,h);
+    };
+    img.src=d;
+  }else{
+    cv.classList.remove('inked'); if(tip) tip.style.display='';
+  }
+}
+function sigWipe(n){
+  sigState[n].data=''; sigState[n].ink=false;
+  sigPreview(n);
+}
+function sigData(n){ return sigState[n].data || ''; }
+
+/* 全螢幕簽名 */
+let bigCtx=null, bigInk=false;
+function openSig(n){
+  sigNow=n;
+  document.getElementById('sigWho').textContent = (n===1?'門市盤點人員':'主管覆核') + ' 簽名';
+  const nm=(document.getElementById('upName'+n).value||'').trim();
+  document.getElementById('sigWhoName').textContent = nm ? ('（'+nm+'）') : '';
+  const win=document.getElementById('sigWin');
+  win.classList.add('show');
+  setTimeout(()=>sigBigSetup(sigState[n].data), 50);
+}
+function sigBigSetup(restore){
+  const cv=document.getElementById('sigBig');
+  const r=cv.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
+  bigCtx=cv.getContext('2d');
+  bigCtx.setTransform(dpr,0,0,dpr,0,0);
+  bigCtx.clearRect(0,0,r.width,r.height);
+  bigCtx.lineWidth=4; bigCtx.lineCap='round'; bigCtx.lineJoin='round'; bigCtx.strokeStyle='#14171C';
+  bigInk=false;
+  document.getElementById('sigBigTip').style.display='';
+  if(restore){
+    const img=new Image();
+    img.onload=()=>{
+      const sc=Math.min(r.width/img.width, r.height/img.height);
+      const w=img.width*sc, h=img.height*sc;
+      bigCtx.drawImage(img,(r.width-w)/2,(r.height-h)/2,w,h);
+      bigInk=true; document.getElementById('sigBigTip').style.display='none';
+    };
+    img.src=restore;
+  }
   let drawing=false, lx=0, ly=0;
   const pt = e => { const b=cv.getBoundingClientRect(); return [e.clientX-b.left, e.clientY-b.top]; };
-  cv.onpointerdown = e => { drawing=true; cv.setPointerCapture(e.pointerId); [lx,ly]=pt(e);
-    if(!sigState[n].ink){ sigState[n].ink=true; cv.classList.add('inked'); } };
-  cv.onpointermove = e => { if(!drawing) return; const [x,y]=pt(e);
-    ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke(); lx=x; ly=y; };
-  cv.onpointerup = cv.onpointercancel = () => { drawing=false; };
+  cv.onpointerdown = e => {
+    e.preventDefault(); drawing=true;
+    try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+    [lx,ly]=pt(e);
+    bigCtx.beginPath(); bigCtx.arc(lx,ly,2,0,6.3); bigCtx.fillStyle='#14171C'; bigCtx.fill();
+    if(!bigInk){ bigInk=true; document.getElementById('sigBigTip').style.display='none'; }
+  };
+  cv.onpointermove = e => {
+    if(!drawing) return; e.preventDefault();
+    const [x,y]=pt(e);
+    bigCtx.beginPath(); bigCtx.moveTo(lx,ly); bigCtx.lineTo(x,y); bigCtx.stroke();
+    lx=x; ly=y;
+  };
+  cv.onpointerup = cv.onpointercancel = cv.onpointerleave = () => { drawing=false; };
 }
-function sigClear(n){ sigSetup(n); }
-function sigData(n){
-  const cv=document.getElementById('sig'+n);
-  if(!cv || !sigState[n].ink) return '';
+function sigBigClear(){ sigBigSetup(''); }
+function sigCancel(){ document.getElementById('sigWin').classList.remove('show'); }
+/* 找出筆跡範圍,把四周空白裁掉 */
+function inkBox(cv){
+  const w=cv.width, h=cv.height;
+  let d;
+  try{ d=cv.getContext('2d').getImageData(0,0,w,h).data; }catch(e){ return null; }
+  let x0=w, y0=h, x1=-1, y1=-1;
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      if(d[(y*w+x)*4+3] > 24){
+        if(x<x0)x0=x; if(x>x1)x1=x;
+        if(y<y0)y0=y; if(y>y1)y1=y;
+      }
+    }
+  }
+  if(x1<0) return null;
+  return {x0:x0, y0:y0, x1:x1, y1:y1};
+}
+function sigDone(){
+  const n=sigNow;
+  if(!bigInk){ sigCancel(); return; }
+  const cv=document.getElementById('sigBig');
+  const b=inkBox(cv);
+  let sx=0, sy=0, sw=cv.width, sh=cv.height;
+  if(b){
+    const pad=Math.round(Math.max(cv.width,cv.height)*0.035);
+    sx=Math.max(0,b.x0-pad); sy=Math.max(0,b.y0-pad);
+    sw=Math.min(cv.width-sx, b.x1-b.x0+pad*2);
+    sh=Math.min(cv.height-sy, b.y1-b.y0+pad*2);
+    if(sw<20||sh<20){ sx=0; sy=0; sw=cv.width; sh=cv.height; }
+  }
+  const W=520, H=Math.max(90, Math.round(W*sh/sw));
   const out=document.createElement('canvas');
-  out.width=520; out.height=Math.round(520*cv.height/cv.width);
+  out.width=W; out.height=Math.min(H, 420);
   const c2=out.getContext('2d');
   c2.fillStyle='#fff'; c2.fillRect(0,0,out.width,out.height);
-  c2.drawImage(cv,0,0,out.width,out.height);
-  return out.toDataURL('image/png');
+  c2.drawImage(cv, sx, sy, sw, sh, 0, 0, out.width, out.height);
+  sigState[n].data=out.toDataURL('image/png');
+  sigState[n].ink=true;
+  sigCancel();
+  sigPreview(n);
+  const m=document.getElementById('upMsg');
+  if(m && m.textContent.indexOf('簽名')>=0) m.textContent='';
 }
 
 /* ── 開視窗 ── */
@@ -1012,8 +1147,9 @@ function openUpload(){
   document.getElementById('upNote').value  = rec.note || '';
   document.getElementById('upMsg').textContent='';
   document.getElementById('upGo').disabled=false;
+  sigState[1]={ink:false,data:''}; sigState[2]={ink:false,data:''};
   document.getElementById('upWin').classList.add('show');
-  setTimeout(()=>{ sigSetup(1); sigSetup(2); }, 60);
+  setTimeout(()=>{ sigPreview(1); sigPreview(2); }, 60);
 }
 function closeUpload(){ document.getElementById('upWin').classList.remove('show'); }
 
@@ -1084,7 +1220,7 @@ async function doUpload(){
   if(!sigState[1].ink){
     const cv=document.getElementById('sig1');
     cv.scrollIntoView({block:'center',behavior:'smooth'});
-    m.style.color='var(--bad)'; m.textContent='↑ 盤點人員還沒簽名'; return;
+    m.style.color='var(--bad)'; m.textContent='↑ 盤點人員還沒簽名（點那個框會放大）'; return;
   }
   if(!HQ_URL){ m.style.color='var(--bad)'; m.textContent='還沒設定後台網址,請找 EMO'; return; }
 
