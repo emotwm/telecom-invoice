@@ -119,6 +119,19 @@ input,select{font-family:inherit;font-size:16px}
 .repfold>summary::before{content:'▸ ';color:var(--muted)}
 .repfold[open]>summary::before{content:'▾ '}
 .repfold .rep{border:0;padding:12px 0 0}
+
+/* 本店上傳紀錄 */
+.hislist{padding-top:10px}
+.hisrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.hisrow:first-child{border-top:0}
+.hisd{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--ink);
+      font-variant-numeric:tabular-nums;white-space:nowrap}
+.hism{flex:1;min-width:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.hism b{color:var(--ink);font-weight:700}
+.histag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.histag.ok{background:var(--ok-bg);color:var(--ok)}
+.histag.bad{background:var(--bad-bg);color:var(--bad)}
+.hisnote{font-size:12.5px;color:var(--muted);padding:4px 0 2px;line-height:1.6}
 .stats b{font-family:var(--mono);font-size:17px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 .s-ok b{color:var(--ok)!important} .s-bad b{color:var(--bad)!important} .s-extra b{color:var(--extra)!important}
 
@@ -591,6 +604,12 @@ tr.flash td{animation:flashRow 1.1s ease-out}
     <div class="upstat" id="upStat">還沒上傳</div>
     <button class="bigup" id="upBtn" onclick="openUpload()">盤完了,上傳給總部</button>
     <div class="qhint" style="margin:-2px 0 10px">上傳之後總部後台就看得到,不用再印紙本回傳。</div>
+
+    <details class="repfold" id="hisFold" style="margin-bottom:9px" ontoggle="loadHistory()">
+      <summary id="hisTitle">看我們店傳過的紀錄</summary>
+      <div id="hisBody" class="hislist"></div>
+    </details>
+
     <button class="subprint" onclick="printRecord()">需要紙本時:列印紀錄表 / 存 PDF</button>
     <details class="repfold">
       <summary>看螢幕上的完整數字（不用印也可以先看）</summary>
@@ -606,7 +625,7 @@ tr.flash td{animation:flashRow 1.1s ease-out}
   </div>
 
   <details class="morefold">
-    <summary>其他功能　<span style="color:#9AA1AA">版本 2026-10-19</span></summary>
+    <summary>其他功能　<span style="color:#9AA1AA">版本 2026-10-19b</span></summary>
     <div class="toolgrp" style="margin-top:10px">盤點設定（平常不用動）</div>
   <div class="modebar" style="display:flex;gap:6px;margin-bottom:8px;font-size:13px;align-items:center;flex-wrap:wrap">
     <span style="color:var(--muted)">盤點方式</span>
@@ -989,6 +1008,8 @@ function upKey(){ return cur + '|' + todayStr(); }
 
 function paintUpStat(){
   const el=document.getElementById('upStat'), btn=document.getElementById('upBtn');
+  const ht=document.getElementById('hisTitle');
+  if(ht) ht.textContent = cur ? '看 ' + cur + ' 傳過的紀錄' : '看我們店傳過的紀錄';
   if(!el) return;
   if(!hasData()){ el.className='upstat'; el.textContent='還沒載入庫存檔'; if(btn) btn.disabled=true; return; }
   if(btn) btn.disabled=false;
@@ -1002,6 +1023,99 @@ function paintUpStat(){
     el.textContent = done >= c.base
       ? '這間店盤完了,可以上傳。'
       : '還有 ' + (c.base-done) + ' 項沒盤,盤完再上傳比較好（現在上傳也可以）。';
+  }
+}
+
+/* ── 本店上傳紀錄（只看得到自己這間店，只能看不能改）── */
+let hisFor = '';          // 已經載好的是哪一間店
+let hisBusy = false;      // 正在查,不要重覆送
+function p2h(n){ return String(n).length<2 ? '0'+n : String(n); }
+function hparse(x){
+  if(x==null || x==='') return null;
+  if(x instanceof Date) return isNaN(x.getTime()) ? null : x;
+  const s = String(x).trim();
+  if(!s) return null;
+  if(/(Z|[+\-]\d{2}:?\d{2})$/.test(s) && /\d{2}:\d{2}/.test(s)){
+    const d = new Date(s); if(!isNaN(d.getTime())) return d;
+  }
+  const m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3], m[4]?+m[4]:0, m[5]?+m[5]:0);
+  const d = new Date(s); return isNaN(d.getTime()) ? null : d;
+}
+function hdate(x){
+  const d = hparse(x);
+  return d ? d.getFullYear()+'/'+p2h(d.getMonth()+1)+'/'+p2h(d.getDate()) : String(x==null?'':x).trim();
+}
+function htime(x){
+  const d = hparse(x);
+  return d ? p2h(d.getHours())+':'+p2h(d.getMinutes()) : '';
+}
+function hts(x){ const d=hparse(x); return d ? d.getTime() : 0; }
+
+function resetHistory(){                    /* 換門市就把舊的清掉 */
+  hisFor = '';
+  const f=document.getElementById('hisFold');
+  if(f){ f.open=false; }
+  const t=document.getElementById('hisTitle');
+  if(t) t.textContent = cur ? '看 ' + cur + ' 傳過的紀錄' : '看我們店傳過的紀錄';
+}
+
+async function loadHistory(){
+  const f = document.getElementById('hisFold'), box = document.getElementById('hisBody');
+  if(!f || !box || !f.open) return;
+  if(!cur){ box.innerHTML = '<div class="hisnote">先在上面選門市，才知道要查哪一間。</div>'; return; }
+  if(hisFor === cur || hisBusy) return;     /* 同一間店不重覆抓 */
+  if(!HQ_URL){ box.innerHTML = '<div class="hisnote">還沒設定後台網址，請找 EMO。</div>'; return; }
+  hisBusy = true;
+
+  box.innerHTML = '<div class="hisnote">查詢中…</div>';
+  try{
+    const q = new URLSearchParams({ action:'list', token:HQ_TOKEN });
+    const res = await fetch(HQ_URL + '?' + q.toString());
+    if(!res.ok) throw new Error('連不到總部（' + res.status + '）');
+    const j = await res.json();
+    if(!j.ok) throw new Error(j.err || '總部回報失敗');
+
+    /* 只留自己這間店 */
+    let rows = (j.rows||[]).filter(r => String(r['門市']||'').trim() === cur);
+    rows.sort((a,b)=> hts(b['上傳時間']) - hts(a['上傳時間']));
+    /* 同一天重傳過只看最新那份 */
+    const seen = {};
+    rows = rows.filter(r=>{
+      const k = hdate(r['盤點日期']);
+      if(seen[k]) return false; seen[k]=1; return true;
+    });
+
+    if(!rows.length){
+      box.innerHTML = '<div class="hisnote">' + esc(cur) + '還沒有傳過任何一次。</div>';
+      hisFor = cur; hisBusy = false; return;
+    }
+
+    box.innerHTML = rows.slice(0,24).map(r=>{
+      const done = Number(r['已盤品項'])||0, base = Number(r['應盤品項'])||0;
+      const bad  = Number(r['有差異'])||0;
+      const full = base && done >= base;
+      return '<div class="hisrow">'
+        + '<div class="hisd">' + esc(hdate(r['盤點日期'])) + '</div>'
+        + '<div class="hism">' + esc(htime(r['上傳時間'])) + ' 上傳　盤點人 <b>' + esc(r['盤點人']||'') + '</b>'
+        + '<br>' + (full ? '盤完了' : '盤了 ' + done + '／' + base + ' 項')
+        + '　範圍：' + esc(r['盤點範圍']||'') + '</div>'
+        + '<div class="histag ' + (bad ? 'bad':'ok') + '">'
+        + (bad ? '差異 ' + bad + ' 項' : '沒差異') + '</div>'
+        + '</div>';
+    }).join('')
+    + '<div class="hisnote" style="border-top:1px solid var(--line);margin-top:4px">'
+    + '這裡只看得到 ' + esc(cur) + '。數字要改的話回上面重新盤完再上傳一次，總部會換成新的。</div>';
+    hisFor = cur;
+  }catch(e){
+    const raw = String((e && e.message) || e);
+    /* fetch 失敗瀏覽器只會給英文,換成門市看得懂的話 */
+    const why = /fetch|network|Load failed|NetworkError/i.test(raw)
+      ? '手機好像沒有網路，連不到總部。' : raw;
+    box.innerHTML = '<div class="hisnote">查不到紀錄：' + esc(why)
+                  + '<br>有網路之後再點開一次就好，不影響盤點。</div>';
+  }finally{
+    hisBusy = false;
   }
 }
 
@@ -1240,6 +1354,8 @@ async function doUpload(){
                          note:payload.note};
     save();
     closeUpload(); paintUpStat();
+    hisFor = '';                      /* 剛傳的要查得到 */
+    loadHistory();
     msg('已上傳給總部 · ' + cur + ' ' + todayStr());
   }catch(err){
     go.disabled=false;
@@ -2083,7 +2199,7 @@ function setMode(m){
 function switchStore(name){
   if(!db.stores[name]) return;
   cur = name; camStop();
-  fillStores(); refresh();
+  fillStores(); refresh(); resetHistory();
   msg('已切換到 ' + name);
 }
 function addStore(name, items){
@@ -2371,6 +2487,7 @@ async function exportRecordXlsx(){
   XLSX.writeFile(wb, `盤點紀錄表_${cur}_${stamp()}.xlsx`);
   msg('Excel 紀錄表已匯出' + (noDiff?'(無差異)':`(${diff.length} 筆差異)`));
 }
+let pickMode = '';
 function pick(m){ pickMode=m; document.getElementById('filePick').click(); }
 
 /* ── 讀原始 .xls / .xlsx ── */
