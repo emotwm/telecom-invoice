@@ -55,6 +55,37 @@ input,select{font-family:inherit;font-size:16px}
           font-size:19px;font-weight:800;letter-spacing:.08em;margin-bottom:10px;
           box-shadow:0 2px 6px rgba(31,58,95,.26)}
 .bigprint:active{opacity:.85}
+.bigup{width:100%;padding:20px;border:0;border-radius:11px;background:var(--ok);color:#fff;
+       font-size:20px;font-weight:800;letter-spacing:.06em;margin-bottom:8px;
+       box-shadow:0 2px 8px rgba(14,122,75,.28)}
+.bigup:active{opacity:.85}
+.bigup:disabled{background:#AEB4BC;box-shadow:none}
+.subprint{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:10px;background:#fff;
+          color:var(--ink);font-size:15px;font-weight:700;margin-bottom:10px}
+.upstat{display:flex;align-items:center;gap:8px;padding:11px 13px;border-radius:10px;
+        background:var(--wait-bg);color:var(--muted);font-size:13px;margin-bottom:9px;line-height:1.5}
+.upstat.done{background:var(--ok-bg);color:var(--ok);font-weight:700}
+.upstat.fail{background:var(--bad-bg);color:var(--bad);font-weight:700}
+
+/* 上傳視窗 */
+.up-in{max-width:520px}
+.up-sum{background:var(--wait-bg);border-radius:9px;padding:11px 13px;font-size:13px;
+        line-height:1.8;margin-bottom:12px}
+.up-sum b{font-family:var(--mono);font-size:15px}
+.up-lab{font-size:13.5px;font-weight:700;color:var(--ink);margin:12px 0 5px}
+.up-lab span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.up-in input[type=text],.up-in textarea{width:100%;padding:11px;border:1px solid var(--line);
+        border-radius:8px;font-size:16px;background:#fff}
+.up-in textarea{min-height:62px;resize:vertical;font-family:inherit}
+.sigwrap{position:relative;margin-top:6px}
+.sigpad{width:100%;height:120px;border:1.5px dashed var(--line);border-radius:9px;background:#fff;
+        display:block;touch-action:none}
+.sigpad.inked{border-style:solid;border-color:var(--ok)}
+.sigclr{position:absolute;right:7px;top:7px;border:1px solid var(--line);background:#fff;
+        color:var(--muted);border-radius:6px;padding:4px 10px;font-size:12px}
+.sightip{position:absolute;left:0;right:0;top:46px;text-align:center;color:#C2C7CE;
+         font-size:13px;pointer-events:none}
+.sigpad.inked + .sightip{display:none}
 .repfold{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
 .repfold>summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--accent);list-style:none}
 .repfold>summary::-webkit-details-marker{display:none}
@@ -356,7 +387,7 @@ tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:7
 }
 @media print{
   body{background:#fff}
-  .brand,.top,.tabs,.tools,.foot,.stepbar,.bind,#toast,.modebar,.filters,.morefold,.camfold,#flash,#backupTip,.bigprint,.repfold,.qhint{display:none!important}
+  .brand,.top,.tabs,.tools,.foot,.stepbar,.bind,#toast,.modebar,.filters,.morefold,.camfold,#flash,#backupTip,.bigprint,.bigup,.subprint,.upstat,.repfold,.qhint{display:none!important}
   .pane{display:none!important}
   body.print-report #pRep.pane{display:block!important}
   body.print-report #printArea{display:none!important}
@@ -530,8 +561,10 @@ tr.flash td{animation:flashRow 1.1s ease-out}
 
   <!-- 報告 -->
   <div class="pane" id="pRep">
-    <button class="bigprint" onclick="printRecord()">列印紀錄表 / 存 PDF</button>
-    <div class="qhint" style="margin:-2px 0 10px">按下去會跳出列印預覽,右上角選「儲存到檔案」就變成 PDF。</div>
+    <div class="upstat" id="upStat">還沒上傳</div>
+    <button class="bigup" id="upBtn" onclick="openUpload()">盤完了,上傳給總部</button>
+    <div class="qhint" style="margin:-2px 0 10px">上傳之後總部後台就看得到,不用再印紙本回傳。</div>
+    <button class="subprint" onclick="printRecord()">需要紙本時:列印紀錄表 / 存 PDF</button>
     <details class="repfold">
       <summary>看螢幕上的完整數字（不用印也可以先看）</summary>
       <div class="rep" id="repBody"></div>
@@ -546,7 +579,7 @@ tr.flash td{animation:flashRow 1.1s ease-out}
   </div>
 
   <details class="morefold">
-    <summary>其他功能　<span style="color:#9AA1AA">版本 2026-10-12c</span></summary>
+    <summary>其他功能　<span style="color:#9AA1AA">版本 2026-10-16</span></summary>
     <div class="toolgrp" style="margin-top:10px">盤點設定（平常不用動）</div>
   <div class="modebar" style="display:flex;gap:6px;margin-bottom:8px;font-size:13px;align-items:center;flex-wrap:wrap">
     <span style="color:var(--muted)">盤點方式</span>
@@ -600,6 +633,38 @@ tr.flash td{animation:flashRow 1.1s ease-out}
       <button onclick="closeBind()" style="flex:1;padding:15px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:16px;font-weight:700">略過(掃錯了)</button>
       <button onclick="addExtra()" style="flex:1;padding:15px;border:1px solid var(--extra);border-radius:9px;background:var(--extra-bg);color:var(--extra);font-size:16px;font-weight:700">記為清單外</button>
     </div>
+  </div>
+</div>
+
+<div class="bind" id="upWin">
+  <div class="bind-in up-in">
+    <h3 style="color:var(--accent)">上傳盤點結果</h3>
+    <div class="up-sum" id="upSum"></div>
+
+    <div class="up-lab">門市盤點人員<span>請簽名</span></div>
+    <input type="text" id="upName1" placeholder="姓名" autocomplete="off">
+    <div class="sigwrap">
+      <canvas class="sigpad" id="sig1"></canvas>
+      <div class="sightip">用手指在這裡簽名</div>
+      <button class="sigclr" onclick="sigClear(1)">清除</button>
+    </div>
+
+    <div class="up-lab">主管覆核<span>請簽名</span></div>
+    <input type="text" id="upName2" placeholder="姓名" autocomplete="off">
+    <div class="sigwrap">
+      <canvas class="sigpad" id="sig2"></canvas>
+      <div class="sightip">用手指在這裡簽名</div>
+      <button class="sigclr" onclick="sigClear(2)">清除</button>
+    </div>
+
+    <div class="up-lab">備註<span>差異原因、後續處理（沒有就留空）</span></div>
+    <textarea id="upNote" placeholder="例:iPhone 17 Pro 少 1 台,已請門市協尋"></textarea>
+
+    <div class="pad-row" style="margin-top:14px">
+      <button class="pad-cancel" onclick="closeUpload()">取消</button>
+      <button class="pad-ok" id="upGo" onclick="doUpload()">確定上傳</button>
+    </div>
+    <div class="qhint" id="upMsg" style="text-align:center;margin-top:8px"></div>
   </div>
 </div>
 
@@ -819,6 +884,172 @@ function nudge(id, delta){
   flashId = id;
   refresh(); save();
 }
+
+/* ════════════ 上傳到總部後台 ════════════ */
+/* ⚠️ 架設好 Apps Script 之後,把網址和通關密語填到這兩行 */
+const HQ_URL   = 'https://script.google.com/macros/s/AKfycbwnsnO4i_suaxmv3OiOLUZvvYkpFhl4R4--HQO7_lBreKE3xqjs8Vorh2Icc5IxwOooEQ/exec';            // 例:https://script.google.com/macros/s/AKfy.../exec
+const HQ_TOKEN = '27707232';    // 要跟 Apps Script 裡的 TOKEN 一樣
+
+function todayStr(){
+  const d=new Date();
+  return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
+}
+function upKey(){ return cur + '|' + todayStr(); }
+
+function paintUpStat(){
+  const el=document.getElementById('upStat'), btn=document.getElementById('upBtn');
+  if(!el) return;
+  if(!hasData()){ el.className='upstat'; el.textContent='還沒載入庫存檔'; if(btn) btn.disabled=true; return; }
+  if(btn) btn.disabled=false;
+  const rec = (db.uploads||{})[upKey()];
+  if(rec && rec.ok){
+    el.className='upstat done';
+    el.textContent='✓ 已上傳　' + rec.at + '　（' + (rec.by||'') + '）。數字有改的話可以再上傳一次,後台會換成新的。';
+  }else{
+    el.className='upstat';
+    const c=calc(), done=c.ok+c.bad;
+    el.textContent = done >= c.base
+      ? '這間店盤完了,可以上傳。'
+      : '還有 ' + (c.base-done) + ' 項沒盤,盤完再上傳比較好（現在上傳也可以）。';
+  }
+}
+
+/* ── 簽名板 ── */
+const sigState = {1:{ink:false},2:{ink:false}};
+function sigSetup(n){
+  const cv=document.getElementById('sig'+n);
+  if(!cv) return;
+  const r=cv.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
+  const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#14171C';
+  ctx.clearRect(0,0,r.width,r.height);
+  cv.classList.remove('inked'); sigState[n].ink=false;
+  let drawing=false, lx=0, ly=0;
+  const pt = e => { const b=cv.getBoundingClientRect(); return [e.clientX-b.left, e.clientY-b.top]; };
+  cv.onpointerdown = e => { drawing=true; cv.setPointerCapture(e.pointerId); [lx,ly]=pt(e);
+    if(!sigState[n].ink){ sigState[n].ink=true; cv.classList.add('inked'); } };
+  cv.onpointermove = e => { if(!drawing) return; const [x,y]=pt(e);
+    ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke(); lx=x; ly=y; };
+  cv.onpointerup = cv.onpointercancel = () => { drawing=false; };
+}
+function sigClear(n){ sigSetup(n); }
+function sigData(n){
+  const cv=document.getElementById('sig'+n);
+  if(!cv || !sigState[n].ink) return '';
+  const out=document.createElement('canvas');
+  out.width=520; out.height=Math.round(520*cv.height/cv.width);
+  const c2=out.getContext('2d');
+  c2.fillStyle='#fff'; c2.fillRect(0,0,out.width,out.height);
+  c2.drawImage(cv,0,0,out.width,out.height);
+  return out.toDataURL('image/png');
+}
+
+/* ── 開視窗 ── */
+function openUpload(){
+  if(!hasData()){ msg('還沒載入庫存檔'); return; }
+  const c=calc(), done=c.ok+c.bad;
+  const net=Math.round(c.plusV - c.minusV);
+  document.getElementById('upSum').innerHTML =
+    '門市 <b>'+esc(cur)+'</b>　盤點日 <b>'+todayStr()+'</b><br>'+
+    '應盤 <b>'+c.base+'</b> 項　已盤 <b>'+done+'</b> 項　有差異 <b>'+c.bad+'</b> 項<br>'+
+    '盤盈 <b>+'+c.plus+'</b> 件　盤虧 <b>-'+c.minus+'</b> 件　淨差異 <b>'+net.toLocaleString()+'</b> 元';
+  const rec=(db.uploads||{})[upKey()]||{};
+  document.getElementById('upName1').value = rec.n1 || '';
+  document.getElementById('upName2').value = rec.n2 || '';
+  document.getElementById('upNote').value  = rec.note || '';
+  document.getElementById('upMsg').textContent='';
+  document.getElementById('upGo').disabled=false;
+  document.getElementById('upWin').classList.add('show');
+  setTimeout(()=>{ sigSetup(1); sigSetup(2); }, 60);
+}
+function closeUpload(){ document.getElementById('upWin').classList.remove('show'); }
+
+/* ── 組資料 ── */
+function buildPayload(){
+  const c=calc();
+  const done=c.ok+c.bad;
+  const items=[];
+  const push=(kind,r,extra)=>{
+    const a=got(r.id), d=(a===null?0:a-r.q);
+    items.push(Object.assign({
+      kind:kind, cat:r.c||'', name:r.n||'', code:r.id||'', sn:'',
+      sys:r.q, real:(a===null?'':a), diff:(a===null?'':d),
+      amt:(a===null?'':Math.round(d*(r.cost||0)))
+    }, extra||{}));
+  };
+  c.rows.forEach(r=>{
+    if(r.q < 0){ push('負庫存', r); return; }
+    const st=state(r);
+    if(st==='bad')   push('差異', r);
+    if(st==='extra') push('清單外', r);
+  });
+  c.rows.forEach(r=>{
+    missingSns(r).forEach(sn=>{
+      items.push({kind:'未盤到序號', cat:r.c||'', name:r.n||'', code:r.id||'', sn:sn,
+                  sys:r.q, real:(got(r.id)===null?'':got(r.id)), diff:'', amt:''});
+    });
+  });
+  const waits=c.rows.filter(r=>state(r)==='wait');
+  waits.slice(0,300).forEach(r=>push('未盤到', r));
+
+  const signs=[];
+  const n1=(document.getElementById('upName1').value||'').trim();
+  const n2=(document.getElementById('upName2').value||'').trim();
+  signs.push({role:'門市盤點人員', name:n1, img:sigData(1)});
+  signs.push({role:'主管覆核',     name:n2, img:sigData(2)});
+
+  return {
+    token: HQ_TOKEN,
+    store: cur,
+    date: todayStr(),
+    scope: (SCOPES[getScope()]||{}).label || '',
+    note: (document.getElementById('upNote').value||'').trim(),
+    summary: {
+      total:c.base, done:done, rate:(c.base?Math.round(done/c.base*100):0)+'%',
+      ok:c.ok, bad:c.bad, wait:c.wait, extra:c.extra,
+      plus:c.plus, minus:c.minus,
+      plusAmt:Math.round(c.plusV), minusAmt:Math.round(c.minusV),
+      netAmt:Math.round(c.plusV-c.minusV)
+    },
+    items: items,
+    signs: signs
+  };
+}
+
+/* ── 送出 ── */
+async function doUpload(){
+  const m=document.getElementById('upMsg'), go=document.getElementById('upGo');
+  const n1=(document.getElementById('upName1').value||'').trim();
+  if(!n1){ m.style.color='var(--bad)'; m.textContent='請先填盤點人員姓名'; return; }
+  if(!sigState[1].ink){ m.style.color='var(--bad)'; m.textContent='盤點人員還沒簽名'; return; }
+  if(!HQ_URL){ m.style.color='var(--bad)'; m.textContent='還沒設定後台網址,請找 EMO'; return; }
+
+  go.disabled=true; m.style.color='var(--muted)'; m.textContent='上傳中,請稍候…';
+  const payload=buildPayload();
+  try{
+    const res=await fetch(HQ_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)
+    });
+    const j=await res.json();
+    if(!j.ok) throw new Error(j.err||'後台回報失敗');
+    db.uploads=db.uploads||{};
+    db.uploads[upKey()]={ok:true, at:j.at||new Date().toLocaleString('zh-TW'), id:j.id,
+                         by:n1, n1:n1, n2:(document.getElementById('upName2').value||'').trim(),
+                         note:payload.note};
+    save();
+    closeUpload(); paintUpStat();
+    msg('已上傳給總部 · ' + cur + ' ' + todayStr());
+  }catch(err){
+    go.disabled=false;
+    m.style.color='var(--bad)';
+    m.textContent='上傳失敗:' + (err && err.message ? err.message : err) + '。請確認手機有網路,或改用「傳出進度備份」傳給 EMO。';
+  }
+}
+
 /* ── 數字鍵盤 ── */
 let padId=null, padBuf='', padRow=null;
 function openPad(id){
@@ -1604,11 +1835,11 @@ function backfillSerials(){
 function refresh(){
   const hero = document.querySelector('.tools button.hero');
   if(hero) hero.classList.toggle('loaded', hasData());
-  if(!hasData()){ emptyState(); paintLeft(); paintStore(); return; }
+  if(!hasData()){ emptyState(); paintLeft(); paintStore(); paintUpStat(); return; }
   backfillSerials();
   fillCatOptions();
   setScanReady(true);
-  qRender(); render(); stats(); paintLeft(); paintStore(); report(); save();
+  qRender(); render(); stats(); paintLeft(); paintStore(); report(); paintUpStat(); save();
 }
 
 /* ── 門市 ── */
