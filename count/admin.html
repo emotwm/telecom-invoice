@@ -86,6 +86,8 @@ tbody tr:hover{background:#F7F9FC}
 .dt td{border-bottom:1px solid #E7EAEE;padding:7px 8px}
 .notebox{border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:var(--wait-bg);
          font-size:13.5px;min-height:46px;white-space:pre-wrap}
+.rstar{color:#C9A24B;letter-spacing:2px;font-size:15px}
+tr.rtot td{font-weight:700;background:#F5F6F8}
 .signs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
 .sign{border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;background:#fff}
 .sign .role{font-size:12px;color:var(--muted)}
@@ -148,7 +150,7 @@ tbody tr:hover{background:#F7F9FC}
       <div class="bmeta">
         <span id="mMonth"></span>
         <span id="mCount"></span>
-        <span style="color:#9AA1AA">版本 2026-10-19e</span>
+        <span style="color:#9AA1AA">版本 2026-10-20</span>
       </div>
     </div>
     <button class="logout" onclick="logout()">登出</button>
@@ -266,6 +268,12 @@ function ftime(x){                       /* 10/19 10:18 */
            : String(x==null?'':x).trim();
 }
 function ts(x){ const d=dparse(x); return d ? d.getTime() : 0; }
+function minTxt(n){
+  n = Number(n)||0;
+  if(n < 60) return n + ' 分';
+  const h = Math.floor(n/60), m = n%60;
+  return h + ' 小時' + (m ? ' ' + m + ' 分' : '');
+}
 
 /* ── 列表 ── */
 async function load(){
@@ -374,7 +382,7 @@ async function openDetail(id){
     const d=j.data, m=d.main||{};
     const grp = k => d.items.filter(x=>x['類型']===k);
     const diff=grp('差異'), msn=grp('未盤到序號'), ext=grp('清單外'),
-          wait=grp('未盤到'), neg=grp('負庫存');
+          wait=grp('未盤到'), neg=grp('負庫存'), rate=grp('評比');
 
     const tbl = (head, rows) =>
       '<table class="dt"><thead><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'
@@ -439,6 +447,20 @@ async function openDetail(id){
         + '</details>';
     }
 
+    if(rate.length){
+      html += '<div class="sec">盤點現場評比</div>'
+        + tbl(['項目','評分','分數'], rate.map(r=>{
+            const nm = String(r['商品名稱']||'');
+            const got = Number(r['實際盤點'])||0, full = Number(r['電腦庫存'])||0;
+            if(nm.indexOf('耗時')>=0)
+              return '<tr><td>盤點耗時</td><td colspan="2">'+esc(minTxt(got))+'</td></tr>';
+            const stars = full===5
+              ? '<span class="rstar">'+'★'.repeat(got)+'☆'.repeat(Math.max(0,5-got))+'</span>' : '';
+            return '<tr'+(nm==='合計'?' class="rtot"':'')+'><td>'+esc(nm)+'</td>'
+              + '<td>'+stars+'</td>'
+              + '<td class="c-num">'+got+(full?' / '+full:'')+'</td></tr>';
+          }));
+    }
     html += '<div class="sec">備註</div>'
       + '<div class="notebox">'+ (m['備註'] ? esc(m['備註']) : '（門市未填）') +'</div>';
 
