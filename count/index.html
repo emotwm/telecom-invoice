@@ -313,6 +313,8 @@ tr.r-extra .qtybtn{border-color:var(--extra);color:var(--extra)}
 tr.r-ok{background:var(--ok-bg)} tr.r-bad{background:var(--bad-bg)} tr.r-extra{background:var(--extra-bg)}
 tr.r-ok .c-diff{color:var(--ok)} tr.r-bad .c-diff{color:var(--bad);font-weight:700} tr.r-extra .c-diff{color:var(--extra);font-weight:700}
 .uniq{display:inline-block;font-size:10px;border:1px solid var(--accent);color:var(--accent);border-radius:3px;padding:0 3px}
+.whytag{display:inline-block;font-size:10px;border:1px solid var(--extra);color:var(--extra);
+        border-radius:3px;padding:0 3px;margin-left:3px}
 .empty{padding:26px;text-align:center;color:var(--muted)}
 
 /* 報告 */
@@ -657,7 +659,7 @@ tr.flash td{animation:flashRow 1.1s ease-out}
   </div>
 
   <details class="morefold">
-    <summary>其他功能　<span style="color:#9AA1AA">版本 2026-10-20e</span></summary>
+    <summary>其他功能　<span style="color:#9AA1AA">版本 2026-10-21b</span></summary>
     <div class="toolgrp" style="margin-top:10px">盤點設定（平常不用動）</div>
   <div class="modebar" style="display:flex;gap:6px;margin-bottom:8px;font-size:13px;align-items:center;flex-wrap:wrap">
     <span style="color:var(--muted)">盤點方式</span>
@@ -674,6 +676,11 @@ tr.flash td{animation:flashRow 1.1s ease-out}
     <span style="color:var(--muted)">這次是誰在盤</span>
     <button id="kind_store" onclick="setKind('store')" class="chip" style="cursor:pointer">門市自己盤</button>
     <button id="kind_hq"    onclick="setKind('hq')"    class="chip" style="cursor:pointer">總部抽查</button>
+  </div>
+  <div class="modebar" style="display:flex;gap:6px;margin-bottom:8px;font-size:13px;align-items:center;flex-wrap:wrap">
+    <span style="color:var(--muted)">盤多少</span>
+    <button id="chg_off" onclick="setOnlyChg(false)" class="chip" style="cursor:pointer">範圍內全部</button>
+    <button id="chg_on"  onclick="setOnlyChg(true)"  class="chip" style="cursor:pointer">只盤有異動的</button>
   </div>
 
   <div class="stepbar" id="stepbar">
@@ -912,8 +919,99 @@ function getScope(){
   if(db.scope==='phone' || db.scope==='uniq') db.scope='mob';
   return SCOPES[db.scope] ? db.scope : 'all';
 }
-function inScope(r){ return SCOPES[getScope()].test(r.c || ''); }
+/* ── 只盤異動 ──────────────────────────────────────────
+   基準:上一次「盤完並上傳」當下的電腦庫存。
+   今天載入新的庫存表,數字跟基準不一樣、或是新品項,就是有異動。
+   一進一出數字剛好抵銷抓不到,所以再加一條:超過 STALE_DAYS 天沒被盤到的也一律列入。 */
+const STALE_DAYS = 14;
+function onlyChg(){ return !!db.onlyChg; }
+function baseOf(){ return (db.base||{})[cur] || null; }
+function dnum(s){                      /* yyyy/mm/dd → 天數,方便相減 */
+  const m = String(s||'').match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if(!m) return null;
+  return Math.floor(Date.UTC(+m[1], +m[2]-1, +m[3]) / 86400000);
+}
+/* 回傳 '' 表示沒異動,否則是原因 */
+function chgWhy(r){
+  const b = baseOf();
+  if(!b) return '第一次';                    /* 還沒有基準,全部都要盤 */
+  const had = b.qty && Object.prototype.hasOwnProperty.call(b.qty, r.id);
+  if(!had) return '新品項';
+  if(Number(b.qty[r.id]) !== Number(r.q)) return '數量有變';
+  const seen = dnum((b.seen||{})[r.id]);
+  const today = dnum(todayStr());
+  if(seen===null || (today!==null && today - seen >= STALE_DAYS)) return '太久沒盤';
+  return '';
+}
+function isChg(r){ return chgWhy(r) !== ''; }
+
+function inScope(r){
+  if(!SCOPES[getScope()].test(r.c || '')) return false;
+  if(onlyChg() && !isChg(r)) return false;
+  return true;
+}
 function scopedItems(){ const s = S(); return s ? s.items.filter(inScope) : []; }
+/* 不受「只盤異動」影響的完整清單,存基準時要用 */
+function allScopeItems(){ const s=S(); return s ? s.items.filter(r=>SCOPES[getScope()].test(r.c||'')) : []; }
+
+/* 盤完上傳後把基準更新成現在這份（同時存手機,後台那份才是正本） */
+function buildBase(){
+  const s = S(); if(!s) return null;
+  const old = ((db.base||{})[cur]) || {};
+  const qty = {}, seen = Object.assign({}, old.seen||{});
+  const t = todayStr();
+  s.items.forEach(r=>{
+    qty[r.id] = Number(r.q);
+    if(got(r.id) !== null) seen[r.id] = t;    /* 這次真的有盤到才更新 */
+  });
+  return { at:t, qty:qty, seen:seen };
+}
+function saveBase(){
+  const b = buildBase(); if(!b) return;
+  db.base = db.base || {};
+  db.base[cur] = b;
+  save();
+}
+
+/* ── 跟後台要基準 ──
+   後台那份是正本,換手機、換人盤都看得到同一份。
+   撈不到（沒網路、還沒傳過）就用手機裡那份,不會卡住。 */
+let basePulled = {};          /* 這次開機已經跟後台對過的店 */
+let basePulling = false;
+async function pullBase(force){
+  if(!cur || !HQ_URL) return 'skip';
+  if(!force && basePulled[cur]) return 'cached';
+  if(basePulling) return 'busy';
+  basePulling = true;
+  try{
+    const q = new URLSearchParams({action:'base', token:HQ_TOKEN, store:cur});
+    const res = await fetch(HQ_URL + '?' + q.toString());
+    if(!res.ok) throw new Error('連不到總部（'+res.status+'）');
+    const j = await res.json();
+    if(!j.ok) throw new Error(j.err||'總部回報失敗');
+    basePulled[cur] = true;
+    if(j.base && j.base.qty && Object.keys(j.base.qty).length){
+      db.base = db.base || {};
+      db.base[cur] = { at:j.base.at||'', qty:j.base.qty||{}, seen:j.base.seen||{} };
+      save(); refresh();
+      return 'ok';
+    }
+    return 'empty';            /* 後台還沒有這家店的基準 */
+  }catch(e){
+    return 'fail:' + (e && e.message ? e.message : e);
+  }finally{
+    basePulling = false;
+  }
+}
+/* 畫面上用的統計 */
+function chgStat(){
+  const s=S(); if(!s) return null;
+  const inSc = s.items.filter(r=>SCOPES[getScope()].test(r.c||''));
+  const o = {total:inSc.length, chg:0, '新品項':0, '數量有變':0, '太久沒盤':0, '第一次':0};
+  inSc.forEach(r=>{ const w=chgWhy(r); if(w){ o.chg++; o[w]=(o[w]||0)+1; } });
+  o.base = baseOf();
+  return o;
+}
 function allItems(){
   const s = S(); if(!s) return [];
   return scopedItems().concat((s.extra||[]).map(e=>({c:'清單外', id:e.id, n:e.n, q:0, cost:e.cost||0, extra:true})));
@@ -1391,7 +1489,8 @@ function buildPayload(){
       netAmt:Math.round(c.netV)
     },
     items: items,
-    signs: signs
+    signs: signs,
+    base: buildBase()      /* 只盤異動的基準,後台存正本 */
   };
 }
 
@@ -1428,6 +1527,7 @@ async function doUpload(){
     db.uploads[upKey()]={ok:true, at:j.at||new Date().toLocaleString('zh-TW'), id:j.id,
                          by:n1, n1:n1, n2:(document.getElementById('upName2').value||'').trim(),
                          note:payload.note};
+    saveBase();                       /* 這次盤完的庫存變成下次的基準 */
     save();
     closeUpload(); paintUpStat();
     hisFor = '';                      /* 剛傳的要查得到 */
@@ -1831,7 +1931,7 @@ function render(){
   document.getElementById('tb').innerHTML = rows.map(r=>{
     const st=state(r), a=got(r.id), d = a===null?'':(a-r.q);
     return `<tr id="row_${r.id}" class="r-${st==='wait'?'':st}">
-      <td class="c-name">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}${r.q<0?' <span class="uniq" style="border-color:var(--bad);color:var(--bad)">負庫存</span>':''}
+      <td class="c-name">${esc(r.n)}${isUniq(r.c)?' <span class="uniq">唯一</span>':''}${r.q<0?' <span class="uniq" style="border-color:var(--bad);color:var(--bad)">負庫存</span>':''}${(()=>{const w=onlyChg()?chgWhy(r):'';return w&&w!=='第一次'?' <span class="whytag">'+w+'</span>':'';})()}
         <span class="c-code">${esc(r.id)}${r.also&&r.also.length?' + '+esc(r.also.join(' + ')):''} · ${esc(r.c)}</span>
         ${r.sns ? snChips(r) : ''}
         ${r.extra ? `<button class="delx" onclick="removeExtra('${r.id}')">刪除這筆</button>` : ''}</td>
@@ -2385,23 +2485,60 @@ function rateData(){
 function paintKindBar(){
   const bar=document.getElementById('kindBar');
   if(!bar) return;
-  const hq = getKind()==='hq', sc = getScope();
-  if(!hq && sc==='all'){ bar.style.display='none'; return; }
+  const hq = getKind()==='hq', sc = getScope(), ch = onlyChg();
+  if(!hq && sc==='all' && !ch){ bar.style.display='none'; return; }
   const t=[], s=[];
   if(hq){ t.push('總部抽查'); s.push('簽名欄是總部盤點人／門市陪同盤點人／庫存管理人員'); }
   if(sc!=='all'){
     t.push('只盤 ' + SCOPES[sc].label);
-    s.push('這次只盤 ' + scopedItems().length + ' 項,其他大類不列入');
+    if(!ch) s.push('這次只盤 ' + scopedItems().length + ' 項,其他大類不列入');
+  }
+  if(ch){
+    t.push('只盤有異動的');
+    const st = chgStat();
+    if(!st){ s.push('載入當天庫存表後會列出有異動的品項'); }
+    else if(!st.base){ s.push('還沒有上次的紀錄,這次先盤全部 ' + st.total + ' 項,盤完上傳後就會有基準'); }
+    else {
+      const why=[];
+      ['數量有變','新品項','太久沒盤'].forEach(k=>{ if(st[k]) why.push(k+' '+st[k]); });
+      s.push('跟上次（' + st.base.at + '）比有 ' + st.chg + ' 項要盤'
+             + (why.length ? '（' + why.join('、') + '）' : '') + ',其餘 ' + (st.total-st.chg) + ' 項沒動過');
+    }
   }
   document.getElementById('kindBarT').textContent = t.join('　·　');
   document.getElementById('kindBarS').textContent = s.join('；');
   bar.style.display='flex';
 }
 function resetSettings(){
-  db.kind='store'; db.scope='all';
-  setScope('all'); setKind('store');
-  msg('已改回預設:全部商品、門市自盤');
+  db.kind='store'; db.scope='all'; db.onlyChg=false;
+  setScope('all'); setKind('store'); setOnlyChg(false, true);
+  msg('已改回預設:全部商品、門市自盤、盤全部');
 }
+async function setOnlyChg(v, silent){
+  db.onlyChg = !!v;
+  const a=document.getElementById('chg_off'), b=document.getElementById('chg_on');
+  if(a) a.classList.toggle('on', !v);
+  if(b) b.classList.toggle('on', !!v);
+  fillStores(); refresh();
+  if(silent){ if(v) pullBase(); return; }
+  save();
+  if(!v){
+    msg(hasData() ? ('這次盤範圍內全部,共 ' + chgStat().total + ' 項') : '已設成盤範圍內全部');
+    return;
+  }
+  if(!hasData()){ msg('已設成只盤有異動的,載入當天庫存表後會列出來'); pullBase(); return; }
+  msg('正在跟總部拿上次的庫存基準…');
+  const r = await pullBase(true);
+  const st = chgStat();
+  if(!st.base){
+    msg('總部還沒有這家店的基準,這次先盤全部 ' + st.total + ' 項;盤完上傳後,以後就只會列有異動的');
+  }else if(String(r).indexOf('fail')===0){
+    msg('連不到總部,先用這支手機上次存的基準。有 ' + st.chg + ' 項要盤');
+  }else{
+    msg('跟上次（' + st.base.at + '）比,有 ' + st.chg + ' 項要盤（原本 ' + st.total + ' 項）');
+  }
+}
+
 function setKind(k, silent){
   db.kind = k;
   Object.keys(KINDS).forEach(x=>{
@@ -2429,6 +2566,7 @@ function switchStore(name){
   if(!db.stores[name]) return;
   cur = name; camStop();
   fillStores(); refresh(); resetHistory();
+  if(onlyChg()) pullBase();
   msg('已切換到 ' + name);
 }
 function addStore(name, items){
@@ -2875,6 +3013,7 @@ function applyMap(){
   });
   cur = names[0];
   closeMap(); fillStores(); refresh();
+  basePulled = {}; if(onlyChg()) pullBase(true);   /* 新檔案進來,重新跟總部對基準 */
   msg(`${names.join('、')} 準備好了,這次要盤 ${rows.length} 項。游標點進上面的框就可以開始嗶。`);
   window.lastLoadDetail = (report.sub||report.gift||report.item||report.label||report.serial)
     ? `大類排除 ${report.sub}、贈品濾除 ${report.gift}、非實體 ${report.item||0}、標籤 ${report.label||0}、序號聚合 ${report.serial||0}`
@@ -2903,6 +3042,7 @@ document.getElementById('filePick').addEventListener('change', function(){
         if(!names.length) throw new Error('CSV 沒有可用資料');
         names.forEach(w=>addStore(w, byStore[w]));
         cur = names[0]; fillStores(); refresh();
+        basePulled = {}; if(onlyChg()) pullBase(true);
         msg('已載入門市:' + names.join('、'));
       }
     }catch(err){ alert('讀檔失敗:' + err.message); }
@@ -2966,7 +3106,7 @@ try{
   }
 }catch(e){}
 if(!restored){ db = {alias:{}, stores:{}}; cur = ''; }
-fillStores(); markStep(); setMode(getMode()); setScope(getScope()); setKind(getKind(), true); refresh();
+fillStores(); markStep(); setMode(getMode()); setScope(getScope()); setKind(getKind(), true); setOnlyChg(onlyChg(), true); refresh();
 setTimeout(()=>{ try{ document.getElementById('code').focus(); }catch(e){} }, 300);
 // 未加到主畫面時提醒(避開 Safari 七天清除)
 if(/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.standalone === false){
