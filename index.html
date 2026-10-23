@@ -39,6 +39,12 @@ body{background:var(--bg);color:var(--ink);font-size:16px;min-height:100vh;-webk
 .navtab:hover{color:var(--ink);border-bottom-color:#f3cda8}
 .navtab.on{color:#ea6c1f;border-bottom-color:#ea6c1f}
 .navtab.logout{color:#94a0b0;font-weight:600;margin-left:6px}
+.tbwrap{position:relative;display:inline-flex;align-items:stretch}
+.tbmenu{position:absolute;right:0;top:calc(100% + 4px);min-width:180px;background:#fff;border:1px solid #e6dccf;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;z-index:40;text-align:left}
+.tbmenu a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;color:#222;text-decoration:none;font-size:15px;white-space:nowrap;font-weight:600}
+.tbmenu a:hover{background:#FFF1E8;color:#ea6c1f}
+.tbmenu a span{width:22px;text-align:center}
+.tbmenu[hidden]{display:none}
 .navtab.logout:hover{color:#c0392b;border-bottom-color:transparent}
 @media(max-width:560px){.topbar{padding:0 12px;gap:4px}.navtab{padding:0 9px;font-size:13.5px}.topbar-sub{display:none}.brand-logo{height:34px}.brand-div{display:none}.topbar-title{font-size:16px}}
 
@@ -252,7 +258,13 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
     </div>
     <div class="navwrap">
       <button class="navtab on">📤 進貨上傳</button>
-      <button class="navtab" onclick="goHome()">☰ 工具箱</button>
+      <button class="navtab" onclick="goBack()">← 返回</button>
+      <div class="tbwrap"><button class="navtab" onclick="toggleTB(event)">☰ 工具箱 ▾</button>
+        <div class="tbmenu" hidden>
+          <a href="/"><span>🏠</span>工具箱首頁</a>
+          <a href="/barcode/"><span>📦</span>到貨貼標</a>
+          <!-- 以後加盤點、耗材：照上面格式加一行 -->
+        </div></div>
     </div>
   </div>
   <div class="page" style="max-width:600px">
@@ -380,7 +392,13 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
       <button class="navtab" onclick="goStats()">📊 統計</button>
       <button class="navtab" onclick="goStores()">🏪 門市管理</button>
       <button class="navtab" onclick="goVendors()">⚙️ 廠商管理</button>
-      <button class="navtab" onclick="goHome()">☰ 工具箱</button>
+      <button class="navtab" onclick="goBack()">← 返回</button>
+      <div class="tbwrap"><button class="navtab" onclick="toggleTB(event)">☰ 工具箱 ▾</button>
+        <div class="tbmenu" hidden>
+          <a href="/"><span>🏠</span>工具箱首頁</a>
+          <a href="/barcode/"><span>📦</span>到貨貼標</a>
+          <!-- 以後加盤點、耗材：照上面格式加一行 -->
+        </div></div>
       <button class="navtab logout" onclick="logout()">登出</button>
     </div>
   </div>
@@ -687,6 +705,9 @@ function readSSO(){
     if(!r||!r.role)return null; if(r.role==='store'&&!r.store)return null; return r;}catch(e){return null;}
 }
 function goHome(){location.href=HOME_URL;}
+function goBack(){if(history.length>1)history.back();else goHome();}
+function toggleTB(e){e.stopPropagation();const m=e.currentTarget.nextElementSibling;const open=m.hidden;document.querySelectorAll('.tbmenu').forEach(x=>x.hidden=true);m.hidden=!open;}
+document.addEventListener('click',e=>{if(!e.target.closest('.tbwrap'))document.querySelectorAll('.tbmenu').forEach(x=>x.hidden=true);});
 function showScreen(id){
   if(id==='s-login'&&!readSSO()&&!HOME_LOCAL){location.replace(HOME_URL);return;}   /* 沒登入就回首頁，不在這裡問帳密 */
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
