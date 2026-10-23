@@ -2378,3 +2378,12 @@ window.batchDeleteFirebase = async function(fbIds){
 window.loadVendorsFromFirebase();
 window.loadStoresFromFirebase();
 </script>
+<style>.logoHome{cursor:pointer;transition:opacity .15s}.logoHome:hover{opacity:.8}.logoHome:focus-visible{outline:3px solid rgba(232,84,30,.45);outline-offset:3px;border-radius:6px}</style>
+<script>/* 點 logo 回「倚盟工具箱」首頁 */
+(function(){document.querySelectorAll('.brand-logo').forEach(function(el){
+  el.classList.add('logoHome');el.title='回工具箱首頁';el.setAttribute('role','link');el.tabIndex=0;
+  function go(){if(typeof HOME_LOCAL!=='undefined'&&HOME_LOCAL)return;location.href=HOME_URL;}
+  el.addEventListener('click',go);
+  el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+});})();
+</script>
