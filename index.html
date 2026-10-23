@@ -250,7 +250,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
     </div>
     <div class="navwrap">
       <button class="navtab on">📤 進貨上傳</button>
-      <button class="navtab logout" onclick="logout()">登出</button>
+      <button class="navtab" onclick="goHome()">☰ 工具箱</button>
     </div>
   </div>
   <div class="page" style="max-width:600px">
@@ -378,6 +378,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
       <button class="navtab" onclick="goStats()">📊 統計</button>
       <button class="navtab" onclick="goStores()">🏪 門市管理</button>
       <button class="navtab" onclick="goVendors()">⚙️ 廠商管理</button>
+      <button class="navtab" onclick="goHome()">☰ 工具箱</button>
       <button class="navtab logout" onclick="logout()">登出</button>
     </div>
   </div>
@@ -676,7 +677,16 @@ let recs=[];
 let nid=1;
 
 // ===== 工具函數 =====
+/* ══ 共用登入：登入在「倚盟工具箱」首頁做，這裡只沿用（同一個網域，localStorage 互通） ══ */
+const HOME_URL='/';
+const HOME_LOCAL=location.protocol==='file:';   /* 直接點開檔案時沒有首頁可回，保留原本的登入畫面 */
+function readSSO(){
+  try{const r=JSON.parse(localStorage.getItem('emo:sso')||'null');
+    if(!r||!r.role)return null; if(r.role==='store'&&!r.store)return null; return r;}catch(e){return null;}
+}
+function goHome(){location.href=HOME_URL;}
 function showScreen(id){
+  if(id==='s-login'&&!readSSO()&&!HOME_LOCAL){location.replace(HOME_URL);return;}   /* 沒登入就回首頁，不在這裡問帳密 */
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
@@ -1035,7 +1045,8 @@ document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')
 
 function logout(){
   cu=null;photo=null;manualItems=[];
-  try{localStorage.removeItem('cu_u');localStorage.removeItem('cu_p');}catch(e){}
+  try{localStorage.removeItem('cu_u');localStorage.removeItem('cu_p');localStorage.removeItem('emo:sso');}catch(e){}
+  if(!HOME_LOCAL){location.replace(HOME_URL+'?logout=1');return;}
   document.getElementById('lu').value='';document.getElementById('lp').value='';
   document.getElementById('vsel').value='';document.getElementById('smsg').textContent='';
   resetPhoto();onVC();showScreen('s-login');
@@ -1982,23 +1993,20 @@ renderLoginHints();
 
 // 自動恢復登入狀態
 try{
-  const su=localStorage.getItem('cu_u');
-  const sp=localStorage.getItem('cu_p');
-  if(su&&sp){
-    const {accs,pws}=buildACCS();
-    const acc=accs[su];
-    if(acc&&pws[su]===sp){
-      cu={...acc,username:su};
-      // 等 Firebase 和門市設定都載入後再恢復
-      let t=0;
-      const w=setInterval(()=>{
-        t++;
-        if((window.recs!==undefined||t>10)){
-          clearInterval(w);
-          doAfterLogin();
-        }
-      },600);
-    }
+  const sso=readSSO();
+  if(sso){
+    cu=sso.role==='admin'?{role:'admin',username:'admin'}:{role:'store',store:sso.store,username:sso.account||''};
+    // 等 Firebase 和門市設定都載入後再恢復
+    let t=0;
+    const w=setInterval(()=>{
+      t++;
+      if((window.recs!==undefined||t>10)){
+        clearInterval(w);
+        doAfterLogin();
+      }
+    },600);
+  }else if(!HOME_LOCAL){
+    location.replace(HOME_URL);   /* 沒登入就回「倚盟工具箱」首頁 */
   }
 }catch(e){}
 </script>
