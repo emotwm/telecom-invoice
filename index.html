@@ -6,6 +6,8 @@
 <title>進貨單管理系統</title>
 <link rel="manifest" href="/telecom-invoice/manifest.json">
 <meta name="theme-color" content="#0C447C">
+<script>try{var _s=JSON.parse(localStorage.getItem('emo:sso')||'null');if(_s&&_s.role)document.documentElement.classList.add('sso');}catch(e){}</script>
+<style>html.sso #s-login{display:none!important}</style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="倚盟進貨單">
@@ -317,7 +319,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
         <div style="font-size:19px;font-weight:900;color:#1e6fb8;display:flex;align-items:center;gap:8px">📋 我上傳過的單</div>
         <div style="display:flex;gap:8px;align-items:center;background:#eaf3fc;border:1.5px solid #bcd8f0;border-radius:12px;padding:7px 10px">
           <span style="font-size:13px;color:#1e6fb8;font-weight:700;white-space:nowrap;flex-shrink:0">🔍 查其他天</span>
-          <input type="date" id="hist-date" style="font-size:14px;padding:8px 10px;border:1px solid #bcd8f0;border-radius:8px;background:#fff;min-height:auto" onchange="renderHist()">
+          <input type="date" id="hist-date" style="font-size:14px;padding:8px 10px;border:1px solid #bcd8f0;border-radius:8px;background:#fff;min-height:auto" onchange="pickHistDay()">
           <button class="mbtn" onclick="document.getElementById('hist-date').value='';renderHist()" style="font-size:13px;padding:8px 14px;min-height:auto">今日</button>
         </div>
       </div>
@@ -1024,17 +1026,23 @@ function doLogin(){
   }
 }
 
+function waitRecs(fn){
+  if(window._fbReady && window.recs){fn();return;}
+  let t=0;const w=setInterval(()=>{t++;if(window.recs||t>40){clearInterval(w);fn();}},500);
+}
 function doAfterLogin(){
+  window.cu=cu;   /* 讓 Firebase 即時更新時認得目前登入者 */
+  if(window.startListen) window.startListen();   /* 依角色建立資料監聽（門市只抓自己店近7天）*/
   if(cu.role==='admin'){
     document.getElementById('adate').textContent=formatDate(new Date())+' 截止 16:00';
     showScreen('s-admin');
-    if(window._fbReady && window.recs){renderAdmin();}
-    else{let t=0;const w=setInterval(()=>{t++;if(window.recs||t>6){clearInterval(w);renderAdmin();}},500);}
+    waitRecs(renderAdmin);
   } else {
     document.getElementById('store-name').textContent=cu.store;
     manualItems=[];showScreen('s-store');
-    if(window._fbReady && window.recs){renderHist();}
-    else{let t=0;const w=setInterval(()=>{t++;if(window.recs||t>6){clearInterval(w);renderHist();}},500);}
+    const sh=document.getElementById('store-hist');
+    if(sh) sh.innerHTML='<div style="text-align:center;color:#888;font-size:13px;padding:16px">⏳ 資料載入中…</div>';
+    waitRecs(renderHist);
   }
   // 登入後索取通知權限並登記手機
   if(window.registerPush) setTimeout(()=>window.registerPush(), 400);
@@ -1044,7 +1052,9 @@ document.getElementById('login-btn').addEventListener('click',doLogin);
 document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 function logout(){
-  cu=null;photo=null;manualItems=[];
+  cu=null;window.cu=null;photo=null;manualItems=[];
+  if(window.stopListen) window.stopListen();
+  try{document.documentElement.classList.remove('sso');}catch(e){}
   try{localStorage.removeItem('cu_u');localStorage.removeItem('cu_p');localStorage.removeItem('emo:sso');}catch(e){}
   if(!HOME_LOCAL){location.replace(HOME_URL+'?logout=1');return;}
   document.getElementById('lu').value='';document.getElementById('lp').value='';
@@ -1247,6 +1257,15 @@ function doSend(){
   },400);
 }
 
+async function pickHistDay(){
+  const inp=document.getElementById('hist-date'); const v=inp?inp.value:'';
+  if(v && window.loadStoreDay && !(window.isDayLive && window.isDayLive(v))){
+    const el=document.getElementById('store-hist');
+    if(el) el.innerHTML='<div style="text-align:center;color:#888;font-size:13px;padding:16px">⏳ 讀取該日資料中…</div>';
+    try{ await window.loadStoreDay(v); }catch(e){ console.warn('loadStoreDay 失敗',e); }
+  }
+  renderHist();
+}
 function renderHist(){
   const el=document.getElementById('store-hist');
   const data=(window._fbReady && window.recs) ? window.recs : recs;
@@ -1996,15 +2015,8 @@ try{
   const sso=readSSO();
   if(sso){
     cu=sso.role==='admin'?{role:'admin',username:'admin'}:{role:'store',store:sso.store,username:sso.account||''};
-    // 等 Firebase 和門市設定都載入後再恢復
-    let t=0;
-    const w=setInterval(()=>{
-      t++;
-      if((window.recs!==undefined||t>10)){
-        clearInterval(w);
-        doAfterLogin();
-      }
-    },600);
+    // 立刻進入畫面，資料由 doAfterLogin 內部等候並自動補畫（不再卡在登入頁）
+    doAfterLogin();
   }else if(!HOME_LOCAL){
     location.replace(HOME_URL);   /* 沒登入就回「倚盟工具箱」首頁 */
   }
@@ -2087,27 +2099,84 @@ window._serverTimestamp = serverTimestamp;
 window._query = query;
 window._orderBy = orderBy;
 
-// 即時監聽 Firestore 資料
-async function loadFromFirestore(){
-  try {
-    const q = query(collection(db,'invoices'), orderBy('createdAt','desc'));
-    onSnapshot(q, (snapshot)=>{
-      window.recs = snapshot.docs.map(d=>({fbId:d.id, ...d.data()}));
-      // 總部端更新
-      if(document.getElementById('s-admin').classList.contains('active')) renderAdmin();
-      // 門市端更新（不管哪間店都更新，renderHist 會自己篩選）
-      if(window.cu && window.cu.role==='store' && document.getElementById('s-store').classList.contains('active')){
-        renderHist();
+// ══ 即時監聽 Firestore 資料（依角色決定範圍）══
+//   總部端：全部資料（需要完整歷史、統計、容量提醒）
+//   門市端：只抓「自己店 × 最近 7 天」；查更早日期時才即時抓那一天
+//   皆為等值查詢（store == / date in），不需在 Firebase 後台建複合索引
+const STORE_WINDOW_DAYS = 7;
+let _unsub = null, _midnightTimer = null;
+const _liveDays = new Set();          // 目前即時監聽涵蓋的日期（YYYY/M/D）
+const _extra = new Map();             // 門市「查其他天」額外抓到的資料 fbId -> rec
+let _live = [];                       // 最近一次即時監聽快照的資料
+function _tsOf(r){ const c=r&&r.createdAt; if(!c) return 0; if(typeof c.toMillis==='function') return c.toMillis(); if(c.seconds) return c.seconds*1000; const t=Date.parse(c); return isNaN(t)?0:t; }
+function _slashDate(s){ if(!s) return ''; const p=String(s).trim().split(/[-\/]/); return p.length===3?`${+p[0]}/${+p[1]}/${+p[2]}`:String(s); }
+function _rerender(){
+  if(document.getElementById('s-admin').classList.contains('active')) renderAdmin();
+  if(window.cu && window.cu.role==='store' && document.getElementById('s-store').classList.contains('active')) renderHist();
+}
+function _rebuildRecs(){
+  const ids=new Set(_live.map(r=>r.fbId));
+  const extra=[..._extra.values()].filter(r=>!ids.has(r.fbId));
+  window.recs=[..._live,...extra].sort((a,b)=>_tsOf(b)-_tsOf(a));
+}
+function startListen(){
+  const u=window.cu; if(!u) return;
+  if(_unsub){ try{_unsub();}catch(e){} _unsub=null; }
+  if(_midnightTimer){ clearTimeout(_midnightTimer); _midnightTimer=null; }
+  _liveDays.clear();
+  let q;
+  if(u.role==='store'){
+    const days=[]; for(let i=0;i<STORE_WINDOW_DAYS;i++){ const d=new Date(); d.setDate(d.getDate()-i); days.push(formatDate(d)); }
+    days.forEach(x=>_liveDays.add(x));
+    q=query(collection(db,'invoices'), where('store','==',u.store), where('date','in',days));
+    // 跨午夜後重新建立監聽，讓新的一天也在窗口內
+    const now=new Date(), next=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,5);
+    _midnightTimer=setTimeout(()=>{ _midnightTimer=null; startListen(); }, next-now);
+  } else {
+    q=query(collection(db,'invoices'), orderBy('createdAt','desc'));
+  }
+  try{
+    _unsub=onSnapshot(q,(snapshot)=>{
+      _live=snapshot.docs.map(d=>({fbId:d.id, ...d.data()}));
+      _rebuildRecs();
+      _rerender();
+    },(err)=>{
+      console.error('Firebase 監聽失敗:',err);
+      // 安全網：門市窗口查詢若失敗，退回全量載入，確保畫面不會空白
+      if(u.role==='store' && !startListen._fallback){
+        startListen._fallback=true;
+        try{
+          _unsub=onSnapshot(query(collection(db,'invoices'), orderBy('createdAt','desc')),(s2)=>{
+            _live=s2.docs.map(d=>({fbId:d.id, ...d.data()})); _rebuildRecs(); _rerender();
+          });
+          console.warn('已退回全量載入模式');
+        }catch(e2){ console.error(e2); }
       }
     });
-    console.log('Firebase 連線成功');
+    console.log('Firebase 連線成功（'+(u.role==='store'?('門市 '+u.store+' 近'+STORE_WINDOW_DAYS+'天'):'總部 全部')+'）');
     window._fbLoaded = true;
-  } catch(e){
-    console.error('Firebase 載入失敗:', e);
-  }
+  }catch(e){ console.error('Firebase 載入失敗:', e); }
 }
-
-loadFromFirestore();
+function stopListen(){
+  if(_unsub){ try{_unsub();}catch(e){} _unsub=null; }
+  if(_midnightTimer){ clearTimeout(_midnightTimer); _midnightTimer=null; }
+  _liveDays.clear(); _extra.clear(); _live=[]; window.recs=undefined;
+}
+window.startListen=startListen;
+window.stopListen=stopListen;
+window.isDayLive=function(dateStr){ return _liveDays.has(_slashDate(dateStr)); };
+// 門市「查其他天」：即時抓該店該日資料（每次挑選都重新抓，保證最新）
+window.loadStoreDay=async function(dateStr){
+  const u=window.cu; if(!u||u.role!=='store') return false;
+  const slash=_slashDate(dateStr), dash=String(dateStr).replace(/\//g,'-');
+  const variants=[...new Set([slash,dash,dateStr].filter(Boolean))];
+  const snap=await getDocs(query(collection(db,'invoices'), where('store','==',u.store), where('date','in',variants)));
+  for(const [k,r] of [..._extra]){ if(_slashDate(r.date)===slash) _extra.delete(k); }
+  snap.docs.forEach(d=>_extra.set(d.id,{fbId:d.id, ...d.data()}));
+  _rebuildRecs();
+  return true;
+};
+if(window.cu) startListen();
 
 // 照片壓縮（存入 Firestore，壓縮到 200KB 以內）
 async function compressPhoto(dataUrl){
@@ -2284,8 +2353,7 @@ window.batchDeleteFirebase = async function(fbIds){
   }
 };
 
-// 啟動時載入設定
-loadFromFirestore();
+// 啟動時載入設定（資料監聽改由登入後 startListen 啟動）
 window.loadVendorsFromFirebase();
 window.loadStoresFromFirebase();
 </script>
